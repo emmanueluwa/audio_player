@@ -31,11 +31,16 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
             right: 0,
             child: AppBar(
               leading: IconButton(
-                icon: Icon(Icons.arrow_back_ios),
+                icon: Icon(Icons.arrow_back_ios, color: Colors.white),
                 onPressed: () {},
               ),
 
-              actions: [IconButton(onPressed: () {}, icon: Icon(Icons.search))],
+              actions: [
+                IconButton(
+                  onPressed: () {},
+                  icon: Icon(Icons.search, color: Colors.white),
+                ),
+              ],
               backgroundColor: Colors.transparent,
               elevation: 0.0,
             ),
@@ -43,7 +48,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
           Positioned(
             left: 0,
             right: 0,
-            top: screenWidth * 0.2,
+            top: screenHeight * 0.2,
             height: screenHeight * 0.36,
             child: Container(
               decoration: BoxDecoration(
@@ -59,6 +64,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                       fontSize: 30,
                       fontWeight: FontWeight.bold,
                       fontFamily: "Avenir",
+                      color: Colors.black,
                     ),
                   ),
                   Text("Mostafa", style: TextStyle(fontSize: 20)),
@@ -74,15 +80,20 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white, width: 2),
+                border: Border.all(color: Colors.white, width: 5),
+                color: AppColors.audioGreyBackground,
               ),
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white, width: 2),
-                    image: DecorationImage(image: AssetImage("img/img1.jpg")),
+                    // borderRadius: BorderRadius.circular(20),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 5),
+                    image: DecorationImage(
+                      image: AssetImage("images/img1.jpg"),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
               ),
