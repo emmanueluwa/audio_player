@@ -79,7 +79,9 @@ class _AudioFileState extends State<AudioFile> {
 
   Widget btnFaster() {
     return IconButton(
-      onPressed: () {},
+      onPressed: () {
+        this.widget.advancedPlayer.setPlaybackRate(1.5);
+      },
       icon: ImageIcon(
         AssetImage("images/forward.png"),
         size: 15,
@@ -90,7 +92,9 @@ class _AudioFileState extends State<AudioFile> {
 
   Widget btnSlower() {
     return IconButton(
-      onPressed: () {},
+      onPressed: () {
+        this.widget.advancedPlayer.setPlaybackRate(0.5);
+      },
       icon: ImageIcon(
         AssetImage("images/backword.png"),
         size: 15,
