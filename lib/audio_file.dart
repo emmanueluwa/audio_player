@@ -47,9 +47,22 @@ class _AudioFileState extends State<AudioFile> {
 
     return IconButton(
       padding: const EdgeInsets.only(bottom: 10),
-      icon: Icon(_icons[0]),
+      icon: isPlaying ? Icon(_icons[1], size: 50) : Icon(_icons[0], size: 50),
+
       onPressed: () {
-        this.widget.advancedPlayer.play(UrlSource(path));
+        if (!isPlaying) {
+          this.widget.advancedPlayer.play(UrlSource(path));
+
+          setState(() {
+            isPlaying = true;
+          });
+        } else if (isPlaying) {
+          this.widget.advancedPlayer.pause();
+
+          setState(() {
+            isPlaying = false;
+          });
+        }
       },
     );
   }
@@ -59,9 +72,55 @@ class _AudioFileState extends State<AudioFile> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [btnStart()],
+        children: [btnSlower(), btnStart(), btnFaster()],
       ),
     );
+  }
+
+  Widget btnFaster() {
+    return IconButton(
+      onPressed: () {},
+      icon: ImageIcon(
+        AssetImage("images/forward.png"),
+        size: 15,
+        color: Colors.black,
+      ),
+    );
+  }
+
+  Widget btnSlower() {
+    return IconButton(
+      onPressed: () {},
+      icon: ImageIcon(
+        AssetImage("images/backword.png"),
+        size: 15,
+        color: Colors.black,
+      ),
+    );
+  }
+
+  Widget slider() {
+    return Slider(
+      activeColor: Colors.black,
+      inactiveColor: Colors.black12,
+      value: _position.inSeconds.toDouble(),
+      min: 0.0,
+      max: _duration.inSeconds.toDouble(),
+
+      onChanged: (double value) {
+        setState(() {
+          changeToSecond(value.toInt());
+
+          value = value;
+        });
+      },
+    );
+  }
+
+  void changeToSecond(int second) {
+    Duration newDuration = Duration(seconds: second);
+
+    this.widget.advancedPlayer.seek(newDuration);
   }
 
   @override
@@ -73,10 +132,22 @@ class _AudioFileState extends State<AudioFile> {
             padding: const EdgeInsets.only(left: 20, right: 20),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [],
+
+              children: [
+                Text(
+                  _position.toString().split(".")[0],
+                  style: TextStyle(fontSize: 16),
+                ),
+
+                Text(
+                  _duration.toString().split(".")[0],
+                  style: TextStyle(fontSize: 16),
+                ),
+              ],
             ),
           ),
 
+          slider(),
           loadAsset(),
         ],
       ),
