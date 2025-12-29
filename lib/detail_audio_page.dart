@@ -1,4 +1,6 @@
 import 'package:audio_player/app_colours.dart' as AppColors;
+import 'package:audio_player/audio_file.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 class DetailAudioPage extends StatefulWidget {
@@ -9,6 +11,15 @@ class DetailAudioPage extends StatefulWidget {
 }
 
 class _DetailAudioPageState extends State<DetailAudioPage> {
+  late AudioPlayer advancedPlayer;
+
+  @override
+  void initState() {
+    super.initState();
+
+    advancedPlayer = AudioPlayer();
+  }
+
   @override
   Widget build(BuildContext context) {
     final double screenHeight = MediaQuery.of(context).size.height;
@@ -68,6 +79,8 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                     ),
                   ),
                   Text("Mostafa", style: TextStyle(fontSize: 20)),
+
+                  AudioFile(advancedPlayer: advancedPlayer),
                 ],
               ),
             ),
