@@ -42,6 +42,19 @@ class _AudioFileState extends State<AudioFile> {
     });
 
     this.widget.advancedPlayer.setSourceUrl(path);
+
+    this.widget.advancedPlayer.onPlayerComplete.listen((e) {
+      setState(() {
+        _position = Duration(seconds: 0);
+
+        if (isRepeat) {
+          isPlaying = true;
+        } else {
+          isPlaying = false;
+          isRepeat = false;
+        }
+      });
+    });
   }
 
   Widget btnStart() {
