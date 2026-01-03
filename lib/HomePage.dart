@@ -1,3 +1,5 @@
+import 'dart:convert' show json;
+
 import 'package:audio_player/app_colours.dart' as AppColors;
 import 'package:flutter/material.dart';
 
@@ -9,6 +11,25 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  List audioFiles = [];
+
+  ReadData() async {
+    await DefaultAssetBundle.of(context).loadString("json/audio.json").then((
+      a,
+    ) {
+      setState(() {
+        audioFiles = json.decode(a);
+      });
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    ReadData();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -59,7 +80,7 @@ class _HomePageState extends State<HomePage> {
                         height: 180,
                         child: PageView.builder(
                           controller: PageController(viewportFraction: 0.8),
-                          itemCount: 5,
+                          itemCount: audioFiles.length,
                           itemBuilder: (_, i) {
                             return Container(
                               height: 180,
@@ -68,7 +89,7 @@ class _HomePageState extends State<HomePage> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(15),
                                 image: DecorationImage(
-                                  image: AssetImage("images/home_img.jpg"),
+                                  image: AssetImage(audioFiles[i]["img"]),
                                   fit: BoxFit.fill,
                                 ),
                               ),

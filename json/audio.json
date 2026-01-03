@@ -1,0 +1,30 @@
+[
+  {
+    "rating": "4.9",
+    "title": "SURAH AL-BAQARAH",
+    "text": "Sheikh Mustafa Al-Shaybani",
+    "img": "images/pic-1.jpg",
+    "audio": "Surah-Al-Baqarah-Shaybani.mp3"
+  },
+  {
+    "rating": "5.0",
+    "title": "SURAH YASIN",
+    "text": "Sheikh Mustafa Al-Shaybani",
+    "img": "images/pic-2.jpg",
+    "audio": "Surah-Yasin-Shaybani.mp3"
+  },
+  {
+    "rating": "4.8",
+    "title": "THE DAY OF JUDGEMENT",
+    "text": "Abdul Rahman Hassan - AMAU",
+    "img": "images/pic-3.jpg",
+    "audio": "Day-of-Judgement-Abdul-Rahman-Hassan.mp3"
+  },
+  {
+    "rating": "4.7",
+    "title": "PATIENCE IN HARDSHIP",
+    "text": "Abdul Rahman Hassan - AMAU",
+    "img": "images/pic-4.jpg",
+    "audio": "Patience-Abdul-Rahman-Hassan.mp3"
+  }
+]
