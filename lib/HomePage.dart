@@ -1,6 +1,7 @@
 import 'dart:convert' show json;
 
 import 'package:audio_player/app_colours.dart' as AppColors;
+import 'package:audio_player/my_tabs.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -10,8 +11,12 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with SingleTickerProviderStateMixin {
   List audioFiles = [];
+
+  late ScrollController _scrollController;
+  late TabController _tabController;
 
   ReadData() async {
     await DefaultAssetBundle.of(context).loadString("json/audio.json").then((
@@ -26,6 +31,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+
+    _tabController = TabController(length: 3, vsync: this);
+    _scrollController = ScrollController();
 
     ReadData();
   }
@@ -99,6 +107,79 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ],
+                ),
+              ),
+              Expanded(
+                child: NestedScrollView(
+                  controller: _scrollController,
+                  headerSliverBuilder: (BuildContext context, bool isScroll) {
+                    return [
+                      SliverAppBar(
+                        pinned: true,
+                        backgroundColor: Colors.white,
+                        bottom: PreferredSize(
+                          preferredSize: Size.fromHeight(50),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 20),
+                            child: TabBar(
+                              indicatorPadding: const EdgeInsets.all(0),
+                              indicatorSize: TabBarIndicatorSize.label,
+                              labelPadding: const EdgeInsets.only(right: 10),
+                              controller: _tabController,
+                              isScrollable: true,
+                              indicator: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.withValues(alpha: 0.3),
+                                    blurRadius: 7,
+                                    offset: Offset(0, 0),
+                                  ),
+                                ],
+                              ),
+                              tabs: [
+                                AppTabs(
+                                  color: AppColors.menuColor,
+                                  text: "Quran",
+                                ),
+                                AppTabs(
+                                  color: AppColors.menu2Color,
+                                  text: "Lectures",
+                                ),
+                                AppTabs(
+                                  color: AppColors.menu3Color,
+                                  text: "Reminders",
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ];
+                  },
+                  body: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      Material(
+                        child: ListTile(
+                          leading: CircleAvatar(backgroundColor: Colors.grey),
+                          title: Text("Content"),
+                        ),
+                      ),
+                      Material(
+                        child: ListTile(
+                          leading: CircleAvatar(backgroundColor: Colors.grey),
+                          title: Text("Content"),
+                        ),
+                      ),
+                      Material(
+                        child: ListTile(
+                          leading: CircleAvatar(backgroundColor: Colors.grey),
+                          title: Text("Content"),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
