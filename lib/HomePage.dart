@@ -14,6 +14,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   List audioFiles = [];
+  List audios = [];
 
   late ScrollController _scrollController;
   late TabController _tabController;
@@ -24,6 +25,14 @@ class _HomePageState extends State<HomePage>
     ) {
       setState(() {
         audioFiles = json.decode(a);
+      });
+    });
+
+    await DefaultAssetBundle.of(context).loadString("json/audio.json").then((
+      a,
+    ) {
+      setState(() {
+        audios = json.decode(a);
       });
     });
   }
@@ -71,7 +80,7 @@ class _HomePageState extends State<HomePage>
                 children: [
                   Container(
                     margin: const EdgeInsets.only(left: 20),
-                    child: Text("Popular", style: TextStyle(fontSize: 30)),
+                    child: Text("Audio", style: TextStyle(fontSize: 30)),
                   ),
                 ],
               ),
@@ -160,6 +169,114 @@ class _HomePageState extends State<HomePage>
                   body: TabBarView(
                     controller: _tabController,
                     children: [
+                      ListView.builder(
+                        itemCount: audios.length,
+                        itemBuilder: (_, i) {
+                          return Container(
+                            margin: const EdgeInsets.only(
+                              left: 20,
+                              right: 20,
+                              top: 18,
+                              bottom: 10,
+                            ),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(10),
+                                color: AppColors.tabVarViewColor,
+                                boxShadow: [
+                                  BoxShadow(
+                                    blurRadius: 2,
+                                    offset: Offset(0, 0),
+                                    color: Colors.grey.withValues(alpha: 0.2),
+                                  ),
+                                ],
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 90,
+                                      height: 120,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(10),
+                                        image: DecorationImage(
+                                          image: AssetImage(audios[i]["img"]),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.star,
+                                                size: 24,
+                                                color: AppColors.starColor,
+                                              ),
+                                              SizedBox(width: 5),
+                                              Text(
+                                                audios[i]["rating"],
+                                                style: TextStyle(
+                                                  color: AppColors.starColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+
+                                          Text(
+                                            audios[i]["title"],
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontFamily: "Avenir",
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.starColor,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                          Text(
+                                            audios[i]["text"],
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontFamily: "Avenir",
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.subTitleText,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                          ),
+                                          Container(
+                                            width: 60,
+                                            height: 20,
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(3),
+                                              color: AppColors.loveColor,
+                                            ),
+                                            child: Text(
+                                              "Love",
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontFamily: "Avenir",
+                                                fontWeight: FontWeight.bold,
+                                                color: AppColors.starColor,
+                                              ),
+                                            ),
+                                            alignment: Alignment.center,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       Material(
                         child: ListTile(
                           leading: CircleAvatar(backgroundColor: Colors.grey),
