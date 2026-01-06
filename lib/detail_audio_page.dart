@@ -86,7 +86,11 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                     style: TextStyle(fontSize: 20),
                   ),
 
-                  AudioFile(advancedPlayer: advancedPlayer),
+                  AudioFile(
+                    advancedPlayer: advancedPlayer,
+                    audioPath:
+                        this.widget.audioData[this.widget.index]["audio"],
+                  ),
                 ],
               ),
             ),

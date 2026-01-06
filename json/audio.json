@@ -1,30 +1,44 @@
 [
   {
     "rating": "4.9",
-    "title": "SURAH AL-BAQARAH",
-    "text": "Sheikh Mustafa Al-Shaybani",
+    "title": "SURAH AL-FATIHAH",
+    "text": "Sheikh Mishary Rashid Alafasy",
     "img": "images/pic-1.jpg",
-    "audio": "Surah-Al-Baqarah-Shaybani.mp3"
+    "audio": "https://server8.mp3quran.net/afs/001.mp3"
   },
   {
     "rating": "5.0",
-    "title": "SURAH YASIN",
-    "text": "Sheikh Mustafa Al-Shaybani",
+    "title": "SURAH AL-BAQARAH",
+    "text": "Sheikh Mishary Rashid Alafasy",
     "img": "images/pic-2.jpg",
-    "audio": "Surah-Yasin-Shaybani.mp3"
+    "audio": "https://server8.mp3quran.net/afs/002.mp3"
   },
   {
     "rating": "4.8",
-    "title": "THE DAY OF JUDGEMENT",
-    "text": "Abdul Rahman Hassan - AMAU",
+    "title": "SURAH YASIN",
+    "text": "Sheikh Abdul Basit",
     "img": "images/pic-3.jpg",
-    "audio": "Day-of-Judgement-Abdul-Rahman-Hassan.mp3"
+    "audio": "https://server11.mp3quran.net/basit/036.mp3"
   },
   {
     "rating": "4.7",
-    "title": "PATIENCE IN HARDSHIP",
-    "text": "Abdul Rahman Hassan - AMAU",
+    "title": "SURAH AR-RAHMAN",
+    "text": "Sheikh Abdul Basit",
     "img": "images/pic-4.jpg",
-    "audio": "Patience-Abdul-Rahman-Hassan.mp3"
+    "audio": "https://server11.mp3quran.net/basit/055.mp3"
+  },
+  {
+    "rating": "4.9",
+    "title": "SURAH AL-MULK",
+    "text": "Sheikh Saad Al-Ghamdi",
+    "img": "images/pic-1.jpg",
+    "audio": "https://server7.mp3quran.net/s_gmd/067.mp3"
+  },
+  {
+    "rating": "5.0",
+    "title": "SURAH AL-KAHF",
+    "text": "Sheikh Mishary Rashid Alafasy",
+    "img": "images/pic-2.jpg",
+    "audio": "https://server8.mp3quran.net/afs/018.mp3"
   }
 ]
