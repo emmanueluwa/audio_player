@@ -4,7 +4,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 class DetailAudioPage extends StatefulWidget {
-  const DetailAudioPage({super.key});
+  final audioData;
+  final int index;
+
+  const DetailAudioPage({super.key, this.audioData, required this.index});
 
   @override
   State<DetailAudioPage> createState() => _DetailAudioPageState();
@@ -70,7 +73,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                 children: [
                   SizedBox(height: screenHeight * 0.1),
                   Text(
-                    "Cure",
+                    this.widget.audioData[this.widget.index]["title"],
                     style: TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.bold,
@@ -78,7 +81,10 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                       color: Colors.black,
                     ),
                   ),
-                  Text("Mostafa", style: TextStyle(fontSize: 20)),
+                  Text(
+                    this.widget.audioData[this.widget.index]["text"],
+                    style: TextStyle(fontSize: 20),
+                  ),
 
                   AudioFile(advancedPlayer: advancedPlayer),
                 ],
@@ -104,7 +110,9 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 5),
                     image: DecorationImage(
-                      image: AssetImage("images/img1.jpg"),
+                      image: AssetImage(
+                        this.widget.audioData[this.widget.index]["img"],
+                      ),
                       fit: BoxFit.cover,
                     ),
                   ),

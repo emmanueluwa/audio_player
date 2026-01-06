@@ -178,7 +178,10 @@ class _HomePageState extends State<HomePage>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => DetailAudioPage(),
+                                  builder: (context) => DetailAudioPage(
+                                    audioData: audios,
+                                    index: i,
+                                  ),
                                 ),
                               );
                             },
