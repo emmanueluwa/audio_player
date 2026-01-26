@@ -36,6 +36,10 @@ dependencies:
   cupertino_icons: ^1.0.8
   audioplayers: ^6.5.1
 
+  dio:
+  flutter_secure_storage:
+  provider:
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
