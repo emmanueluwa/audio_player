@@ -2,7 +2,10 @@ import 'dart:convert' show json;
 
 import 'package:audio_player/app_colours.dart' as AppColors;
 import 'package:audio_player/detail_audio_page.dart';
+import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/my_tabs.dart';
+import 'package:audio_player/services/audio_service.dart';
+import 'package:audio_player/services/auth_service.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -17,25 +20,49 @@ class _HomePageState extends State<HomePage>
   List audioFiles = [];
   List audios = [];
 
+  bool isLoading = true;
+  String? errorMessage;
+
+  final AuthService _authService = AuthService();
+  final AudioService _audioService = AudioService();
+
   late ScrollController _scrollController;
   late TabController _tabController;
 
-  ReadData() async {
-    await DefaultAssetBundle.of(context).loadString("json/audio.json").then((
-      a,
-    ) {
-      setState(() {
-        audioFiles = json.decode(a);
-      });
+  Future<void> loadData() async {
+    setState(() {
+      isLoading = true;
+
+      errorMessage = null;
     });
 
-    await DefaultAssetBundle.of(context).loadString("json/audio.json").then((
-      a,
-    ) {
+    try {
+      final loggedIn = await _authService.isLoggedIn();
+      if (!loggedIn) {
+        Navigator.pushReplacementNamed(context, "/login");
+
+        return;
+      }
+
+      final List<Audio> audioList = await _audioService.getLibrary();
+
+      final displayList = audioList
+          .map((audio) => audio.toDisplayJson())
+          .toList();
+
       setState(() {
-        audios = json.decode(a);
+        audioFiles = displayList;
+
+        audios = displayList;
+
+        isLoading = false;
       });
-    });
+    } catch (e) {
+      setState(() {
+        errorMessage = e.toString();
+        isLoading = false;
+      });
+    }
   }
 
   @override
@@ -45,11 +72,29 @@ class _HomePageState extends State<HomePage>
     _tabController = TabController(length: 3, vsync: this);
     _scrollController = ScrollController();
 
-    ReadData();
+    loadData();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text("error: $errorMessage"),
+              SizedBox(height: 20),
+              ElevatedButton(onPressed: loadData, child: Text("retry")),
+            ],
+          ),
+        ),
+      );
+    }
     return Container(
       color: AppColors.background,
       child: SafeArea(
