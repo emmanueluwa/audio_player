@@ -29,10 +29,10 @@ class Audio {
       userId: json["user_id"],
       title: json["title"],
       author: json["author"],
-      category: json["author"],
-      fileUrl: json["fileUrl"],
+      category: json["category"],
+      fileUrl: json["file_url"],
       duration: json["duration"],
-      fileSize: json["fileSize"],
+      fileSize: json["file_size"],
       createdAt: DateTime.parse(json["created_at"]),
       updatedAt: DateTime.parse(json["updated_at"]),
     );

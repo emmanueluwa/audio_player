@@ -48,6 +48,7 @@ class _HomePageState extends State<HomePage> {
         isLoading = false;
       });
     } catch (e) {
+      print("Error LOADING LIBRARY: ${e}");
       setState(() {
         errorMessage = e.toString();
         isLoading = false;
