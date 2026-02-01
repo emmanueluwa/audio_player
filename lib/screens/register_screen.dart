@@ -172,7 +172,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       suffixIcon: IconButton(
                         onPressed: () {
                           setState(() {
-                            _obscurePassword = !_obscureConfirmPassword;
+                            _obscureConfirmPassword = !_obscureConfirmPassword;
                           });
                         },
                         icon: Icon(
