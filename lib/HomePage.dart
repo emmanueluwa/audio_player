@@ -15,19 +15,15 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
-  List audioFiles = [];
-  List audios = [];
+class _HomePageState extends State<HomePage> {
+  List<Audio> audios = [];
+  String selectedCategory = "ALL";
 
   bool isLoading = true;
   String? errorMessage;
 
   final AuthService _authService = AuthService();
   final AudioService _audioService = AudioService();
-
-  late ScrollController _scrollController;
-  late TabController _tabController;
 
   Future<void> loadData() async {
     setState(() {
@@ -46,14 +42,8 @@ class _HomePageState extends State<HomePage>
 
       final List<Audio> audioList = await _audioService.getLibrary();
 
-      final displayList = audioList
-          .map((audio) => audio.toDisplayJson())
-          .toList();
-
       setState(() {
-        audioFiles = displayList;
-
-        audios = displayList;
+        audios = audioList;
 
         isLoading = false;
       });
@@ -65,12 +55,15 @@ class _HomePageState extends State<HomePage>
     }
   }
 
+  List<Audio> get filteredAudios {
+    if (selectedCategory == "ALL") return audios;
+
+    return audios.where((a) => a.category == selectedCategory).toList();
+  }
+
   @override
   void initState() {
     super.initState();
-
-    _tabController = TabController(length: 3, vsync: this);
-    _scrollController = ScrollController();
 
     loadData();
   }
@@ -78,293 +71,282 @@ class _HomePageState extends State<HomePage>
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator(color: Colors.black87)),
+      );
     }
 
     if (errorMessage != null) {
       return Scaffold(
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text("error: $errorMessage"),
-              SizedBox(height: 20),
-              ElevatedButton(onPressed: loadData, child: Text("retry")),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 64, color: Colors.red),
+                SizedBox(height: 16),
+                Text(
+                  "Error loading library",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+                SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: loadData,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black87,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text("Retry"),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
-    return Container(
-      color: AppColors.background,
-      child: SafeArea(
-        child: Scaffold(
-          body: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.only(left: 20, right: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ImageIcon(
-                      AssetImage("images/menu.png"),
-                      size: 28,
-                      color: Colors.black,
-                    ),
-                    Row(
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          "Library",
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout, color: Colors.black87),
+            onPressed: () async {
+              await _authService.logout();
+              Navigator.pushReplacementNamed(context, "/login");
+            },
+          ),
+        ],
+      ),
+
+      body: Column(
+        children: [
+          //category filter
+          Container(
+            height: 50,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              children: [
+                _buildCategoryChip("All"),
+                SizedBox(width: 8),
+                _buildCategoryChip("QURAN"),
+                SizedBox(width: 8),
+                _buildCategoryChip("LECTURE"),
+                SizedBox(width: 8),
+                _buildCategoryChip("REMINDER"),
+              ],
+            ),
+          ),
+
+          Divider(height: 1),
+
+          //audio list
+          Expanded(
+            child: filteredAudios.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.search),
-                        SizedBox(width: 10),
-                        Icon(Icons.notifications),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 20),
-              Row(
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(left: 20),
-                    child: Text("Audio", style: TextStyle(fontSize: 30)),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20),
-              Container(
-                height: 180,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      top: 0,
-                      left: -20,
-                      right: 0,
-                      child: Container(
-                        height: 180,
-                        child: PageView.builder(
-                          controller: PageController(viewportFraction: 0.8),
-                          itemCount: audioFiles.length,
-                          itemBuilder: (_, i) {
-                            return Container(
-                              height: 180,
-                              width: MediaQuery.of(context).size.width,
-                              margin: const EdgeInsets.only(right: 10),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(15),
-                                image: DecorationImage(
-                                  image: AssetImage(audioFiles[i]["img"]),
-                                  fit: BoxFit.fill,
-                                ),
-                              ),
-                            );
-                          },
+                        Icon(
+                          Icons.music_note_outlined,
+                          size: 64,
+                          color: Colors.grey[300],
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: NestedScrollView(
-                  controller: _scrollController,
-                  headerSliverBuilder: (BuildContext context, bool isScroll) {
-                    return [
-                      SliverAppBar(
-                        pinned: true,
-                        backgroundColor: Colors.white,
-                        bottom: PreferredSize(
-                          preferredSize: Size.fromHeight(50),
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 20),
-                            child: TabBar(
-                              indicatorPadding: const EdgeInsets.all(0),
-                              indicatorSize: TabBarIndicatorSize.label,
-                              labelPadding: const EdgeInsets.only(right: 10),
-                              controller: _tabController,
-                              isScrollable: true,
-                              indicator: BoxDecoration(
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.grey.withValues(alpha: 0.3),
-                                    blurRadius: 7,
-                                    offset: Offset(0, 0),
-                                  ),
-                                ],
-                              ),
-                              tabs: [
-                                AppTabs(
-                                  color: AppColors.menuColor,
-                                  text: "Quran",
-                                ),
-                                AppTabs(
-                                  color: AppColors.menu2Color,
-                                  text: "Lectures",
-                                ),
-                                AppTabs(
-                                  color: AppColors.menu3Color,
-                                  text: "Reminders",
-                                ),
-                              ],
-                            ),
+                        SizedBox(height: 16),
+                        Text(
+                          "No audio files",
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
                           ),
                         ),
-                      ),
-                    ];
-                  },
-                  body: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      ListView.builder(
-                        itemCount: audios.length,
-                        itemBuilder: (_, i) {
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => DetailAudioPage(
-                                    audioData: audios,
-                                    index: i,
-                                  ),
-                                ),
-                              );
-                            },
+                        SizedBox(height: 8),
+                        Text(
+                          "Upload files via web interface",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.separated(
+                    itemBuilder: (context, index) {
+                      final audio = filteredAudios[index];
 
-                            child: Container(
-                              margin: const EdgeInsets.only(
-                                left: 20,
-                                right: 20,
-                                top: 18,
-                                bottom: 10,
+                      return ListTile(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        leading: Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: _getCategoryColor(audio.category),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            _getCategoryIcon(audio.category),
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                        title: Text(
+                          audio.title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(height: 4),
+                            Text(
+                              audio.author,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
                               ),
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
-                                  color: AppColors.tabVarViewColor,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      blurRadius: 2,
-                                      offset: Offset(0, 0),
-                                      color: Colors.grey.withValues(alpha: 0.2),
-                                    ),
-                                  ],
-                                ),
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 90,
-                                        height: 120,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                          image: DecorationImage(
-                                            image: AssetImage(audios[i]["img"]),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.star,
-                                                  size: 24,
-                                                  color: AppColors.starColor,
-                                                ),
-                                                SizedBox(width: 5),
-                                                Text(
-                                                  audios[i]["rating"],
-                                                  style: TextStyle(
-                                                    color: AppColors.starColor,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            SizedBox(height: 4),
 
-                                            Text(
-                                              audios[i]["title"],
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontFamily: "Avenir",
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.starColor,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 1,
-                                            ),
-                                            Text(
-                                              audios[i]["text"],
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontFamily: "Avenir",
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.subTitleText,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                              maxLines: 1,
-                                            ),
-                                            Container(
-                                              width: 60,
-                                              height: 20,
-                                              decoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(3),
-                                                color: AppColors.loveColor,
-                                              ),
-                                              child: Text(
-                                                "Love",
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontFamily: "Avenir",
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.starColor,
-                                                ),
-                                              ),
-                                              alignment: Alignment.center,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
+                            Row(
+                              children: [
+                                if (audio.duration != null) ...[
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 14,
+                                    color: Colors.grey[400],
                                   ),
-                                ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    _formatDuration(audio.duration!),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[400],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                        trailing: Icon(
+                          Icons.play_circle_outline,
+                          color: Colors.black87,
+                          size: 32,
+                        ),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DetailAudioPage(
+                                audioData: audios
+                                    .map((a) => a.toDisplayJson())
+                                    .toList(),
+                                index: index,
                               ),
                             ),
                           );
                         },
-                      ),
-                      Material(
-                        child: ListTile(
-                          leading: CircleAvatar(backgroundColor: Colors.grey),
-                          title: Text("Content"),
-                        ),
-                      ),
-                      Material(
-                        child: ListTile(
-                          leading: CircleAvatar(backgroundColor: Colors.grey),
-                          title: Text("Content"),
-                        ),
-                      ),
-                      Material(
-                        child: ListTile(
-                          leading: CircleAvatar(backgroundColor: Colors.grey),
-                          title: Text("Content"),
-                        ),
-                      ),
-                    ],
+                      );
+                    },
+                    separatorBuilder: (context, index) =>
+                        Divider(height: 1, indent: 72),
+                    itemCount: filteredAudios.length,
                   ),
-                ),
-              ),
-            ],
           ),
-        ),
+        ],
       ),
     );
+  }
+
+  Widget _buildCategoryChip(String category) {
+    final isSelected = selectedCategory == category;
+
+    return FilterChip(
+      label: Text(
+        category,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: isSelected ? Colors.white : Colors.black87,
+        ),
+      ),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() {
+          selectedCategory = category;
+        });
+      },
+      backgroundColor: Colors.grey[100],
+      selectedColor: Colors.black87,
+      checkmarkColor: Colors.white,
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      showCheckmark: false,
+    );
+  }
+
+  Color _getCategoryColor(String category) {
+    switch (category) {
+      case 'QURAN':
+        return Colors.green;
+      case 'LECTURE':
+        return Colors.blue;
+      case 'REMINDER':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case "QURAN":
+        return Icons.menu_book;
+      case "LECTURE":
+        return Icons.school;
+      case "REMINDER":
+        return Icons.notifications;
+      default:
+        return Icons.music_note;
+    }
+  }
+
+  String _formatDuration(int seconds) {
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
 }
