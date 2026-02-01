@@ -1,6 +1,7 @@
 import 'package:audio_player/HomePage.dart';
 import 'package:audio_player/detail_audio_page.dart';
 import 'package:audio_player/screens/login_screen.dart';
+import 'package:audio_player/screens/register_screen.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -17,7 +18,10 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(primarySwatch: Colors.grey, useMaterial3: true),
       initialRoute: "/login",
-      routes: {"/login": (ocntext) => LoginScreen()},
+      routes: {
+        "/login": (context) => LoginScreen(),
+        "/register": (context) => RegisterScreen(),
+      },
     );
   }
 }
