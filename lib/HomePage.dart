@@ -271,7 +271,7 @@ class _HomePageState extends State<HomePage> {
                                 audioData: audios
                                     .map((a) => a.toDisplayJson())
                                     .toList(),
-                                index: index,
+                                index: audios.indexOf(audio),
                               ),
                             ),
                           );

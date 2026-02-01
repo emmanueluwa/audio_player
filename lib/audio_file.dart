@@ -16,17 +16,15 @@ class AudioFile extends StatefulWidget {
 }
 
 class _AudioFileState extends State<AudioFile> {
-  Duration _duration = new Duration();
-  Duration _position = new Duration();
-
-  // final String path =
-  //     "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
 
   bool isPlaying = false;
   bool isPaused = false;
   bool isRepeat = false;
+  bool isLoading = true;
 
-  Color black = Colors.black26;
+  Color repeatColor = Colors.black26;
 
   List<IconData> _icons = [Icons.play_circle_fill, Icons.pause_circle_filled];
 
@@ -34,50 +32,77 @@ class _AudioFileState extends State<AudioFile> {
   void initState() {
     super.initState();
 
-    this.widget.advancedPlayer.onDurationChanged.listen((d) {
+    widget.advancedPlayer.onDurationChanged.listen((d) {
       setState(() {
         _duration = d;
+        isLoading = false;
       });
     });
 
-    this.widget.advancedPlayer.onPositionChanged.listen((p) {
+    widget.advancedPlayer.onPositionChanged.listen((p) {
       setState(() {
         _position = p;
       });
     });
 
-    this.widget.advancedPlayer.setSourceUrl(this.widget.audioPath);
+    //load s3 URL
+    _loadAudio();
 
-    this.widget.advancedPlayer.onPlayerComplete.listen((e) {
+    widget.advancedPlayer.onPlayerComplete.listen((e) {
       setState(() {
-        _position = Duration(seconds: 0);
+        _position = Duration.zero;
 
         if (isRepeat) {
           isPlaying = true;
+
+          widget.advancedPlayer.play(UrlSource(widget.audioPath));
         } else {
           isPlaying = false;
-          isRepeat = false;
+          // isRepeat = false;
         }
       });
     });
   }
 
+  Future<void> _loadAudio() async {
+    try {
+      await widget.advancedPlayer.setSourceUrl(widget.audioPath);
+
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      print("error loading audio: $e");
+
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
   Widget btnStart() {
-    // isPlaying = bool;
+    if (isLoading) {
+      return SizedBox(
+        width: 50,
+        height: 50,
+        child: CircularProgressIndicator(color: Colors.black87),
+      );
+    }
 
     return IconButton(
       padding: const EdgeInsets.only(bottom: 10),
-      icon: isPlaying ? Icon(_icons[1], size: 50) : Icon(_icons[0], size: 50),
+      iconSize: 50,
+      icon: Icon(isPlaying ? _icons[1] : _icons[0]),
 
-      onPressed: () {
+      onPressed: () async {
         if (!isPlaying) {
-          this.widget.advancedPlayer.play(UrlSource(this.widget.audioPath));
+          await widget.advancedPlayer.play(UrlSource(widget.audioPath));
 
           setState(() {
             isPlaying = true;
           });
-        } else if (isPlaying) {
-          this.widget.advancedPlayer.pause();
+        } else {
+          await widget.advancedPlayer.pause();
 
           setState(() {
             isPlaying = false;
@@ -92,47 +117,8 @@ class _AudioFileState extends State<AudioFile> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          btnRepeat(),
-          btnSlower(),
-          btnStart(),
-          btnFaster(),
-          btnLoop(),
-        ],
+        children: [btnRepeat(), btnStart()],
       ),
-    );
-  }
-
-  Widget btnFaster() {
-    return IconButton(
-      onPressed: () {
-        this.widget.advancedPlayer.setPlaybackRate(1.5);
-      },
-      icon: ImageIcon(
-        AssetImage("images/forward.png"),
-        size: 15,
-        color: Colors.black,
-      ),
-    );
-  }
-
-  Widget btnSlower() {
-    return IconButton(
-      onPressed: () {
-        this.widget.advancedPlayer.setPlaybackRate(0.5);
-      },
-      icon: ImageIcon(
-        AssetImage("images/backword.png"),
-        size: 15,
-        color: Colors.black,
-      ),
-    );
-  }
-
-  Widget btnLoop() {
-    return IconButton(
-      onPressed: () {},
-      icon: ImageIcon(AssetImage("images/loop.png"), color: Colors.black),
     );
   }
 
@@ -143,15 +129,15 @@ class _AudioFileState extends State<AudioFile> {
           isRepeat = !isRepeat;
 
           if (isRepeat) {
-            this.widget.advancedPlayer.setReleaseMode(ReleaseMode.loop);
-            black = Colors.black;
+            widget.advancedPlayer.setReleaseMode(ReleaseMode.loop);
+            repeatColor = Colors.black87;
           } else {
-            this.widget.advancedPlayer.setReleaseMode(ReleaseMode.release);
-            black = Colors.black26;
+            widget.advancedPlayer.setReleaseMode(ReleaseMode.release);
+            repeatColor = Colors.black26;
           }
         });
       },
-      icon: ImageIcon(AssetImage("images/repeat.png"), color: black),
+      icon: Icon(Icons.repeat, color: repeatColor, size: 28),
     );
   }
 
@@ -161,13 +147,13 @@ class _AudioFileState extends State<AudioFile> {
       inactiveColor: Colors.black12,
       value: _position.inSeconds.toDouble(),
       min: 0.0,
-      max: _duration.inSeconds.toDouble(),
+      max: _duration.inSeconds.toDouble() > 0
+          ? _duration.inSeconds.toDouble()
+          : 1.0,
 
       onChanged: (double value) {
         setState(() {
           changeToSecond(value.toInt());
-
-          value = value;
         });
       },
     );
@@ -176,16 +162,17 @@ class _AudioFileState extends State<AudioFile> {
   void changeToSecond(int second) {
     Duration newDuration = Duration(seconds: second);
 
-    this.widget.advancedPlayer.seek(newDuration);
+    widget.advancedPlayer.seek(newDuration);
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 20, right: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
 
@@ -204,6 +191,7 @@ class _AudioFileState extends State<AudioFile> {
           ),
 
           slider(),
+          SizedBox(height: 8),
           loadAsset(),
         ],
       ),
