@@ -55,6 +55,24 @@ class AudioService {
     }
   }
 
+  Future<String> getStreamUrl(int audioId) async {
+    try {
+      final options = await _getAuthOptions();
+
+      final response = await _dio.get(
+        "/audio/$audioId/stream",
+        options: options,
+      );
+
+      return response.data["stream_url"];
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw Exception("session expired. please login again.");
+      }
+      throw Exception("failed to get stream url: ${e.message}");
+    }
+  }
+
   Future<Audio> uploadAudio({
     required String filePath,
     required String title,
