@@ -21,15 +21,11 @@ class AudioService {
   }
 
   //get users library
-  Future<List<Audio>> getLibrary({String? category}) async {
+  Future<List<Audio>> getLibrary() async {
     try {
       final options = await _getAuthOptions();
 
-      final response = await _dio.get(
-        "/audio/library",
-        queryParameters: category != null ? {"category": category} : null,
-        options: options,
-      );
+      final response = await _dio.get("/audio/library", options: options);
 
       final List<dynamic> audiosJson = response.data["audios"];
 
@@ -77,7 +73,6 @@ class AudioService {
     required String filePath,
     required String title,
     required String author,
-    String category = "QURAN",
   }) async {
     try {
       final options = await _getAuthOptions();
@@ -86,7 +81,6 @@ class AudioService {
         "file": await MultipartFile.fromFile(filePath),
         "title": title,
         "author": author,
-        "category": category,
       });
 
       final response = await _dio.post(

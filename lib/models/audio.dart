@@ -3,7 +3,6 @@ class Audio {
   final int userId;
   final String title;
   final String author;
-  final String category;
   final String fileUrl;
   final int? duration;
   final int? fileSize;
@@ -15,7 +14,6 @@ class Audio {
     required this.userId,
     required this.title,
     required this.author,
-    required this.category,
     required this.fileUrl,
     this.duration,
     this.fileSize,
@@ -29,7 +27,6 @@ class Audio {
       userId: json["user_id"],
       title: json["title"],
       author: json["author"],
-      category: json["category"],
       fileUrl: json["file_url"],
       duration: json["duration"],
       fileSize: json["file_size"],
