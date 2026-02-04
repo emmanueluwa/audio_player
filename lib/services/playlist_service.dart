@@ -17,7 +17,7 @@ class PlaylistService {
   Future<Options> _getAuthOptions() async {
     final token = await _authService.getToken();
 
-    return Options(headers: {"Autherzation": "Bearer $token"});
+    return Options(headers: {"Authorization": "Bearer $token"});
   }
 
   Future<List<Playlist>> getPlaylists() async {
