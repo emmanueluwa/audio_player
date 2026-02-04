@@ -1,5 +1,6 @@
 import 'package:audio_player/models/playlist.dart';
 import 'package:audio_player/screens/create_playlist_screen.dart';
+import 'package:audio_player/screens/playlist_detail_screen.dart';
 import 'package:audio_player/services/playlist_service.dart';
 import 'package:flutter/material.dart';
 
