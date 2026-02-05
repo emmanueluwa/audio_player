@@ -106,7 +106,7 @@ class PlaylistService {
       );
     } on DioException catch (e) {
       if (e.response?.statusCode == 409) {
-        throw Exception("audio already in playist");
+        throw Exception("already in playlist");
       }
 
       throw Exception("failed to add audio: ${e.message}");
