@@ -69,6 +69,24 @@ class AudioService {
     }
   }
 
+  Future<String> getDownloadUrl(int audioId) async {
+    try {
+      final options = await _getAuthOptions();
+
+      final response = await _dio.get(
+        "/audio/$audioId/download",
+        options: options,
+      );
+
+      return response.data["download_url"];
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw Exception("Session expired. Please login again");
+      }
+      throw Exception("Failed to get download url: ${e.message}");
+    }
+  }
+
   Future<Audio> uploadAudio({
     required String filePath,
     required String title,
