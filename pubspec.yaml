@@ -39,6 +39,9 @@ dependencies:
   dio:
   flutter_secure_storage:
   provider:
+  path_provider: ^2.1.4 # Get local storage paths
+  sqflite: ^2.3.3+1 # Local SQLite database
+  permission_handler: ^11.3.1 # Storage permissions
 
 dev_dependencies:
   flutter_test:

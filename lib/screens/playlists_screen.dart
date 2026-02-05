@@ -50,7 +50,15 @@ class _PlaylistsScreenState extends State<PlaylistsScreen> {
   }
 
   Future<void> _deletePlaylist(int playlistId) async {
-    try {} catch (e) {
+    try {
+      await _playlistService.deletePlaylist(playlistId);
+
+      _loadPlaylists();
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Playlist deleted")));
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("failed to delete: $e"),
