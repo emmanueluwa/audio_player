@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 class AudioFile extends StatefulWidget {
   final AudioPlayer advancedPlayer;
   final String audioPath;
+  final bool isLocal;
 
   const AudioFile({
     super.key,
     required this.advancedPlayer,
     required this.audioPath,
+    this.isLocal = false,
   });
 
   @override
@@ -55,7 +57,7 @@ class _AudioFileState extends State<AudioFile> {
         if (isRepeat) {
           isPlaying = true;
 
-          widget.advancedPlayer.play(UrlSource(widget.audioPath));
+          _playAudio();
         } else {
           isPlaying = false;
           // isRepeat = false;
@@ -66,7 +68,15 @@ class _AudioFileState extends State<AudioFile> {
 
   Future<void> _loadAudio() async {
     try {
-      await widget.advancedPlayer.setSourceUrl(widget.audioPath);
+      if (widget.isLocal) {
+        print("loading local file: ${widget.audioPath}");
+
+        await widget.advancedPlayer.setSourceDeviceFile(widget.audioPath);
+      } else {
+        print("loading remote url: ${widget.audioPath}");
+
+        await widget.advancedPlayer.setSourceUrl(widget.audioPath);
+      }
 
       setState(() {
         isLoading = false;
@@ -77,6 +87,14 @@ class _AudioFileState extends State<AudioFile> {
       setState(() {
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _playAudio() async {
+    if (widget.isLocal) {
+      await widget.advancedPlayer.play(DeviceFileSource(widget.audioPath));
+    } else {
+      await widget.advancedPlayer.play(UrlSource(widget.audioPath));
     }
   }
 
@@ -96,7 +114,7 @@ class _AudioFileState extends State<AudioFile> {
 
       onPressed: () async {
         if (!isPlaying) {
-          await widget.advancedPlayer.play(UrlSource(widget.audioPath));
+          await _playAudio();
 
           setState(() {
             isPlaying = true;
@@ -165,6 +183,20 @@ class _AudioFileState extends State<AudioFile> {
     widget.advancedPlayer.seek(newDuration);
   }
 
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    if (hours > 0) {
+      return "$hours:${twoDigits(minutes)}:${twoDigits(seconds)}";
+    }
+
+    return "${twoDigits(minutes)}:${twoDigits(seconds)}";
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -178,12 +210,12 @@ class _AudioFileState extends State<AudioFile> {
 
               children: [
                 Text(
-                  _position.toString().split(".")[0],
+                  _formatDuration(_position),
                   style: TextStyle(fontSize: 16),
                 ),
 
                 Text(
-                  _duration.toString().split(".")[0],
+                  _formatDuration(_duration),
                   style: TextStyle(fontSize: 16),
                 ),
               ],

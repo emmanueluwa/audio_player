@@ -7,11 +7,13 @@ import 'package:flutter/material.dart';
 class DetailAudioPage extends StatefulWidget {
   final List<dynamic> audioData;
   final int index;
+  final bool isLocal;
 
   const DetailAudioPage({
     super.key,
     required this.audioData,
     required this.index,
+    this.isLocal = false,
   });
 
   @override
@@ -22,7 +24,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
   late AudioPlayer advancedPlayer;
   final AudioService _audioService = AudioService();
 
-  String? streamUrl;
+  String? audioPath;
   bool isLoadingUrl = true;
   String? errorMessage;
 
@@ -32,10 +34,10 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
 
     advancedPlayer = AudioPlayer();
 
-    _loadStreamUrl();
+    _loadAudioPath();
   }
 
-  Future<void> _loadStreamUrl() async {
+  Future<void> _loadAudioPath() async {
     setState(() {
       isLoadingUrl = true;
       errorMessage = null;
@@ -43,12 +45,26 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
 
     try {
       final audio = widget.audioData[widget.index];
-      final audioId = audio["id"];
 
-      final url = await _audioService.getStreamUrl(audioId);
+      if (widget.isLocal) {
+        audioPath = audio["audio"];
+
+        print("local playback: $audioPath");
+      } else {
+        final audioData = audio["audio"];
+
+        if (audioData is String && audioData.startsWith("http")) {
+          audioPath = audioData;
+        } else {
+          final audioId = audio["id"];
+
+          audioPath = await _audioService.getStreamUrl(audioId);
+        }
+
+        print("streaming: $audioPath");
+      }
 
       setState(() {
-        streamUrl = url;
         isLoadingUrl = false;
       });
     } catch (e) {
@@ -78,6 +94,26 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
           onPressed: () => Navigator.of(context).pop(),
           icon: Icon(Icons.arrow_back_ios, color: Colors.black87),
         ),
+        actions: [
+          if (widget.isLocal)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: Chip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.offline_pin, size: 16, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text(
+                      "Offline",
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+              ),
+            ),
+        ],
       ),
       body: SafeArea(
         child: isLoadingUrl
@@ -94,7 +130,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                     Text(errorMessage!),
                     SizedBox(height: 16),
                     ElevatedButton(
-                      onPressed: _loadStreamUrl,
+                      onPressed: _loadAudioPath,
                       child: Text("Retry"),
                     ),
                   ],
@@ -110,11 +146,11 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                       width: 200,
                       height: 200,
                       decoration: BoxDecoration(
-                        color: Colors.black87,
+                        color: widget.isLocal ? Colors.green : Colors.black87,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.music_note,
+                        widget.isLocal ? Icons.offline_pin : Icons.music_note,
                         size: 100,
                         color: Colors.white,
                       ),
@@ -146,7 +182,8 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
 
                     AudioFile(
                       advancedPlayer: advancedPlayer,
-                      audioPath: streamUrl!,
+                      audioPath: audioPath!,
+                      isLocal: widget.isLocal,
                     ),
 
                     Spacer(),

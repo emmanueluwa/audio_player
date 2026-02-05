@@ -7,6 +7,7 @@ import 'package:audio_player/my_tabs.dart';
 import 'package:audio_player/screens/playlists_screen.dart';
 import 'package:audio_player/services/audio_service.dart';
 import 'package:audio_player/services/auth_service.dart';
+import 'package:audio_player/services/download_service.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -22,8 +23,14 @@ class _HomePageState extends State<HomePage> {
   bool isLoading = true;
   String? errorMessage;
 
+  //tracking download status
+  Map<int, bool> downloadStatus = {};
+  Map<int, double> downloadProgress = {};
+  Set<int> currentlyDownloading = {};
+
   final AuthService _authService = AuthService();
   final AudioService _audioService = AudioService();
+  final DownloadService _downloadService = DownloadService();
 
   Future<void> loadData() async {
     setState(() {
@@ -42,8 +49,16 @@ class _HomePageState extends State<HomePage> {
 
       final List<Audio> audioList = await _audioService.getLibrary();
 
+      //check which files are downloaded
+      Map<int, bool> status = {};
+      for (var audio in audioList) {
+        status[audio.id] = await _downloadService.isDownloaded(audio.id);
+      }
+
       setState(() {
         audios = audioList;
+
+        downloadStatus = status;
 
         isLoading = false;
       });
@@ -52,6 +67,70 @@ class _HomePageState extends State<HomePage> {
         errorMessage = e.toString();
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _downloadAudio(Audio audio) async {
+    setState(() {
+      currentlyDownloading.add(audio.id);
+
+      downloadProgress[audio.id] = 0.0;
+    });
+
+    try {
+      await _downloadService.downloadAudio(
+        audio: audio,
+        onProgress: (progress) {
+          setState(() {
+            downloadProgress[audio.id] = progress;
+          });
+        },
+      );
+
+      setState(() {
+        downloadStatus[audio.id] = true;
+
+        currentlyDownloading.remove(audio.id);
+
+        downloadProgress.remove(audio.id);
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Downloaded: ${audio.title}')));
+    } catch (e) {
+      setState(() {
+        currentlyDownloading.remove(audio.id);
+        downloadProgress.remove(audio.id);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Download failed: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteDownload(Audio audio) async {
+    try {
+      await _downloadService.deleteDownload(audio.id);
+
+      setState(() {
+        downloadStatus[audio.id] = false;
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Deleted: ${audio.title}")));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to delete: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -166,6 +245,10 @@ class _HomePageState extends State<HomePage> {
               itemBuilder: (context, index) {
                 final audio = audios[index];
 
+                final isDownloaded = downloadStatus[audio.id] ?? false;
+                final isDownloading = currentlyDownloading.contains(audio.id);
+                final progress = downloadProgress[audio.id] ?? 0.0;
+
                 return ListTile(
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: 16,
@@ -178,11 +261,35 @@ class _HomePageState extends State<HomePage> {
                       color: Colors.blue,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(
-                      Icons.music_note,
-                      color: Colors.white,
-                      size: 28,
-                    ),
+                    child: isDownloaded
+                        ? Stack(
+                            children: [
+                              Center(
+                                child: Icon(
+                                  Icons.music_note,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                              Positioned(
+                                right: 4,
+                                bottom: 4,
+                                child: Container(
+                                  padding: EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Icon(Icons.music_note, color: Colors.white, size: 28),
                   ),
                   title: Text(
                     audio.title,
@@ -208,41 +315,128 @@ class _HomePageState extends State<HomePage> {
                       if (audio.duration != null)
                         Row(
                           children: [
-                            Icon(
-                              Icons.access_time,
-                              size: 14,
-                              color: Colors.grey[400],
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              _formatDuration(audio.duration!),
-                              style: TextStyle(
-                                fontSize: 12,
+                            if (audio.duration != null) ...[
+                              Icon(
+                                Icons.access_time,
+                                size: 14,
                                 color: Colors.grey[400],
                               ),
-                            ),
+                              SizedBox(width: 4),
+                              Text(
+                                _formatDuration(audio.duration!),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[400],
+                                ),
+                              ),
+                            ],
+                            if (isDownloaded) ...[
+                              SizedBox(width: 12),
+                              Icon(
+                                Icons.offline_pin,
+                                size: 14,
+                                color: Colors.green,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "Offline",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
+                      if (isDownloading) ...[
+                        SizedBox(height: 8),
+                        LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.grey[200],
+                          color: Colors.blue,
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          "Downloading ${(progress * 100).toStringAsFixed(0)}%",
+                          style: TextStyle(fontSize: 12, color: Colors.blue),
+                        ),
+                      ],
                     ],
                   ),
-                  trailing: Icon(
-                    Icons.play_circle_outline,
-                    color: Colors.black87,
-                    size: 32,
-                  ),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailAudioPage(
-                          audioData: audios
-                              .map((a) => a.toDisplayJson())
-                              .toList(),
-                          index: index,
+                  trailing: isDownloading
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.blue,
+                          ),
+                        )
+                      : PopupMenuButton(
+                          icon: Icon(Icons.more_vert, color: Colors.black87),
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.play_arrow,
+                                    color: Colors.black87,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text("Play"),
+                                ],
+                              ),
+                              onTap: () {
+                                Future.delayed(
+                                  Duration.zero,
+                                  () => _playAudio(audio),
+                                );
+                              },
+                            ),
+                            if (!isDownloaded)
+                              PopupMenuItem(
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.download,
+                                      color: Colors.blue,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text("Download"),
+                                  ],
+                                ),
+                                onTap: () {
+                                  Future.delayed(
+                                    Duration.zero,
+                                    () => _downloadAudio(audio),
+                                  );
+                                },
+                              ),
+                            if (isDownloaded)
+                              PopupMenuItem(
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text("Dekete Download"),
+                                  ],
+                                ),
+                                onTap: () {
+                                  Future.delayed(
+                                    Duration.zero,
+                                    () => _deleteDownload(audio),
+                                  );
+                                },
+                              ),
+                          ],
                         ),
-                      ),
-                    );
-                  },
+                  onTap: () => _playAudio(audio),
                 );
               },
               separatorBuilder: (context, index) =>
@@ -250,6 +444,40 @@ class _HomePageState extends State<HomePage> {
               itemCount: audios.length,
             ),
     );
+  }
+
+  Future<void> _playAudio(Audio audio) async {
+    try {
+      // if downloaded play from local storage
+      final localPath = await _downloadService.getLocalPath(audio.id);
+
+      String audioPath;
+      if (localPath != null) {
+        audioPath = localPath;
+        print("playing from local storage: $localPath");
+      } else {
+        audioPath = await _audioService.getStreamUrl(audio.id);
+        print("streaming from cloud");
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DetailAudioPage(
+            audioData: [audio.toDisplayJson()],
+            index: 0,
+            isLocal: localPath != null,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to play audio: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   String _formatDuration(int seconds) {
