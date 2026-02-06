@@ -2,6 +2,7 @@ import 'package:audio_player/detail_audio_page.dart';
 import 'package:audio_player/models/playlist.dart';
 import 'package:audio_player/screens/add_to_playlist_screen.dart';
 import 'package:audio_player/services/audio_service.dart';
+import 'package:audio_player/services/download_service.dart';
 import 'package:audio_player/services/playlist_service.dart';
 import 'package:flutter/material.dart';
 
@@ -22,6 +23,7 @@ class PlaylistDetailScreen extends StatefulWidget {
 class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   final PlaylistService _playlistService = PlaylistService();
   final AudioService _audioService = AudioService();
+  final DownloadService _downloadService = DownloadService();
 
   PlaylistDetail? playlistDetail;
 
@@ -77,6 +79,54 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Failed to remove: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _playAudio(AudioInPlaylist audio) async {
+    try {
+      final localPath = await _downloadService.getLocalPath(audio.id);
+
+      String audioPath;
+      bool isLocal;
+
+      if (localPath != null) {
+        audioPath = localPath;
+
+        isLocal = true;
+      } else {
+        audioPath = await _audioService.getStreamUrl(audio.id);
+
+        isLocal = false;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DetailAudioPage(
+            audioData: [
+              {
+                "id": audio.id,
+                "title": audio.title,
+                "text": audio.author,
+                "audio": audioPath,
+              },
+            ],
+            index: 0,
+            isLocal: isLocal,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().contains("connection")
+                ? "Audio not available offline. Download it first."
+                : "Failed to load audio: $e",
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -271,37 +321,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     ],
                   ),
 
-                  onTap: () async {
-                    try {
-                      final streamUrl = await _audioService.getStreamUrl(
-                        audio.id,
-                      );
-
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => DetailAudioPage(
-                            audioData: [
-                              {
-                                "id": audio.id,
-                                "title": audio.title,
-                                "text": audio.author,
-                                "audio": streamUrl,
-                              },
-                            ],
-                            index: 0,
-                          ),
-                        ),
-                      );
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Failed to load audio: $e"),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
+                  onTap: () => _playAudio(audio),
                 );
               },
             ),

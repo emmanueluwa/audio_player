@@ -19,7 +19,12 @@ class LocalDatabase {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: 3,
+      onCreate: _createDB,
+      onUpgrade: _upgradeDB,
+    );
   }
 
   Future _createDB(Database db, int version) async {
@@ -55,6 +60,7 @@ class LocalDatabase {
     await db.execute('''
   CREATE TABLE cached_playlists (
     id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     audio_count INTEGER NOT NULL,
     created_at TEXT NOT NULL,
@@ -64,7 +70,7 @@ class LocalDatabase {
 ''');
 
     await db.execute('''
-  CREATE TABLE cached_playlist_item (
+  CREATE TABLE cached_playlist_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     playlist_id INTEGER NOT NULL,
     audio_id INTEGER NOT NULL,
@@ -75,6 +81,64 @@ class LocalDatabase {
     added_at TEXT NOT NULL
   )
 ''');
+  }
+
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+    CREATE TABLE IF NOT EXISTS cached_playlists (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    audio_count INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    synced_at TEXT NOT NULL
+    )
+''');
+
+      await db.execute('''
+  CREATE TABLE IF NOT EXISTS cached_playlist_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    playlist_id INTEGER NOT NULL,
+    audio_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT NOT NULL,
+    duration INTEGER,
+    added_at TEXT NOT NULL
+  )
+''');
+    }
+
+    if (oldVersion < 3) {
+      await db.execute("DROP TABLE IF EXISTS cached_playlists");
+      await db.execute("DROP TABLE IF EXISTS cached_playlist_items");
+
+      await db.execute('''
+      CREATE TABLE cached_playlists (
+      id INTEGER PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      audio_count INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      synced_at TEXT NOT NULL)
+''');
+
+      await db.execute('''
+      CREATE TABLE cached_playlist_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      playlist_id INTEGER NOT NULL,
+      audio_id INTEGER NOT NULL,
+      position INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      author TEXT NOT NULL,
+      duration INTEGER,
+      added_at TEXT NOT NULL
+      )
+''');
+    }
   }
 
   Future<void> insertDownloadedAudio(Map<String, dynamic> audio) async {
@@ -161,12 +225,6 @@ class LocalDatabase {
     );
   }
 
-  Future<void> close() async {
-    final db = await database;
-
-    await db.close();
-  }
-
   Future<void> cachePlaylists(List<Map<String, dynamic>> playlists) async {
     final db = await database;
 
@@ -176,7 +234,7 @@ class LocalDatabase {
       await db.insert("cached_playlists", {
         ...playlist,
         'synced_at': DateTime.now().toIso8601String(),
-      });
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
@@ -217,5 +275,18 @@ class LocalDatabase {
       whereArgs: [playlistId],
       orderBy: "position ASC",
     );
+  }
+
+  Future<void> clearPlaylistCache() async {
+    final db = await database;
+
+    await db.delete("cached_playlists");
+    await db.delete("cached_playlist_itmes");
+  }
+
+  Future<void> close() async {
+    final db = await database;
+
+    await db.close();
   }
 }

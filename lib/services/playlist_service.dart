@@ -1,4 +1,5 @@
 import 'package:audio_player/config/api_config.dart';
+import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/models/playlist.dart';
 import 'package:audio_player/services/auth_service.dart';
 import 'package:dio/dio.dart';
@@ -14,6 +15,8 @@ class PlaylistService {
 
   final AuthService _authService = AuthService();
 
+  final LocalDatabase _localDb = LocalDatabase.instance;
+
   Future<Options> _getAuthOptions() async {
     final token = await _authService.getToken();
 
@@ -28,8 +31,20 @@ class PlaylistService {
 
       final List<dynamic> playlistsJson = response.data["playlists"];
 
+      await _localDb.cachePlaylists(playlistsJson.cast<Map<String, dynamic>>());
+
       return playlistsJson.map((json) => Playlist.fromJson(json)).toList();
     } on DioException catch (e) {
+      //load from cache if offline
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout) {
+        print("loading cached playlsts");
+
+        final cached = await _localDb.getCachedPlaylists();
+
+        return cached.map((json) => Playlist.fromJson(json)).toList();
+      }
+
       if (e.response?.statusCode == 401) {
         throw Exception("Session expired. Please login again.");
       }
@@ -46,8 +61,56 @@ class PlaylistService {
         options: options,
       );
 
-      return PlaylistDetail.fromJson(response.data);
+      final detail = PlaylistDetail.fromJson(response.data);
+
+      await _localDb.cachePlaylistItems(
+        playlistId,
+        detail.audioItems
+            .map(
+              (item) => {
+                "audio_id": item.id,
+                "title": item.title,
+                "author": item.author,
+                "duration": item.duration,
+                "position": item.position,
+                "added_at": item.addedAt.toIso8601String(),
+              },
+            )
+            .toList(),
+      );
+
+      return detail;
     } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.connectionTimeout) {
+        final cached = await _localDb.getCachedPlaylists();
+
+        final playlist = cached.firstWhere((p) => p['id'] == playlistId);
+
+        final items = await _localDb.getCachedPlaylistItems(playlistId);
+
+        return PlaylistDetail(
+          id: playlist["id"],
+          userId: 0,
+          name: playlist["name"],
+          audioItems: items
+              .map(
+                (item) => AudioInPlaylist(
+                  id: item["audio_id"],
+                  title: item["title"],
+                  author: item["author"],
+                  duration: item["duration"],
+                  fileSize: null,
+                  position: item["position"],
+                  addedAt: DateTime.parse(item["added_at"]),
+                ),
+              )
+              .toList(),
+          createdAt: DateTime.parse(playlist["created_at"]),
+          updatedAt: DateTime.parse(playlist["updated_at"]),
+        );
+      }
+
       if (e.response?.statusCode == 404) {
         throw Exception("playlist not found");
       }
