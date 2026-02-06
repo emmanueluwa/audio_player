@@ -30,6 +30,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   bool isLoading = true;
   String? errorMessage;
 
+  Map<int, bool> downloadStatus = {};
+
   @override
   void initState() {
     super.initState();
@@ -49,8 +51,16 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         widget.playlistId,
       );
 
+      Map<int, bool> status = {};
+
+      for (var audio in detail.audioItems) {
+        status[audio.id] = await _downloadService.isDownloaded(audio.id);
+      }
+
       setState(() {
         playlistDetail = detail;
+
+        downloadStatus = status;
 
         isLoading = false;
       });
@@ -235,6 +245,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   Divider(height: 1, indent: 72),
               itemBuilder: (context, index) {
                 final audio = playlistDetail!.audioItems[index];
+                final isDownloaded = downloadStatus[audio.id] ?? false;
 
                 return ListTile(
                   contentPadding: EdgeInsets.symmetric(
@@ -248,11 +259,35 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       color: Colors.blue,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(
-                      Icons.music_note,
-                      color: Colors.white,
-                      size: 28,
-                    ),
+                    child: isDownloaded
+                        ? Stack(
+                            children: [
+                              Center(
+                                child: Icon(
+                                  Icons.music_note,
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                              Positioned(
+                                right: 4,
+                                bottom: 4,
+                                child: Container(
+                                  padding: EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Icon(Icons.music_note, color: Colors.white, size: 28),
                   ),
                   title: Text(
                     audio.title,
@@ -275,9 +310,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       SizedBox(height: 4),
-                      if (audio.duration != null)
-                        Row(
-                          children: [
+                      Row(
+                        children: [
+                          if (audio.duration != null) ...[
                             Icon(
                               Icons.access_time,
                               size: 14,
@@ -292,7 +327,24 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               ),
                             ),
                           ],
-                        ),
+                          if (isDownloaded) ...[
+                            SizedBox(width: 12),
+                            Icon(
+                              Icons.offline_pin,
+                              size: 14,
+                              color: Colors.green,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              "Offline",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ],
                   ),
 

@@ -71,6 +71,62 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _deleteAudio(Audio audio) async {
+    final confirmed = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete "${audio.title}" permanently?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      showDialog(
+        context: context,
+        builder: (context) =>
+            Center(child: CircularProgressIndicator(color: Colors.black87)),
+      );
+
+      //delete local download if exists
+      final isDownloaded = await _downloadService.isDownloaded(audio.id);
+      if (isDownloaded) {
+        await _downloadService.deleteDownload(audio.id);
+      }
+
+      //delete from service
+      await _audioService.deleteAudio(audio.id);
+
+      Navigator.pop(context);
+
+      await loadData();
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Deleted: ${audio.title}")));
+    } catch (e) {
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to delete: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _downloadAudio(Audio audio) async {
     setState(() {
       currentlyDownloading.add(audio.id);
@@ -420,8 +476,8 @@ class _HomePageState extends State<HomePage> {
                                 child: Row(
                                   children: [
                                     Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
+                                      Icons.delete_outline,
+                                      color: Colors.orange,
                                       size: 20,
                                     ),
                                     SizedBox(width: 8),
@@ -435,6 +491,25 @@ class _HomePageState extends State<HomePage> {
                                   );
                                 },
                               ),
+                            PopupMenuItem(
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.delete_forever,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text("Delete Audio"),
+                                ],
+                              ),
+                              onTap: () {
+                                Future.delayed(
+                                  Duration.zero,
+                                  () => _deleteAudio(audio),
+                                );
+                              },
+                            ),
                           ],
                         ),
                   onTap: () => _playAudio(audio),

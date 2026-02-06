@@ -119,6 +119,13 @@ class AudioService {
 
       await _dio.delete("/audio/$id", options: options);
     } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        throw Exception("Audio not found");
+      }
+      if (e.response?.statusCode == 401) {
+        throw Exception("Session expired. Please login again.");
+      }
+
       throw Exception("upload failed: ${e.message}");
     }
   }
