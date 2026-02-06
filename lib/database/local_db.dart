@@ -51,6 +51,30 @@ class LocalDatabase {
     created_at TEXT NOT NULL
   )
 ''');
+
+    await db.execute('''
+  CREATE TABLE cached_playlists (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    audio_count INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    synced_at TEXT NOt NULL
+  )
+''');
+
+    await db.execute('''
+  CREATE TABLE cached_playlist_item (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    playlist_id INTEGER NOT NULL,
+    audio_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT NOT NULL,
+    duration INTEGER,
+    added_at TEXT NOT NULL
+  )
+''');
   }
 
   Future<void> insertDownloadedAudio(Map<String, dynamic> audio) async {
@@ -141,5 +165,57 @@ class LocalDatabase {
     final db = await database;
 
     await db.close();
+  }
+
+  Future<void> cachePlaylists(List<Map<String, dynamic>> playlists) async {
+    final db = await database;
+
+    await db.delete("cached_playlists");
+
+    for (var playlist in playlists) {
+      await db.insert("cached_playlists", {
+        ...playlist,
+        'synced_at': DateTime.now().toIso8601String(),
+      });
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getCachedPlaylists() async {
+    final db = await database;
+
+    return await db.query("cached_playlists", orderBy: "created_at DESC");
+  }
+
+  Future<void> cachePlaylistItems(
+    int playlistId,
+    List<Map<String, dynamic>> items,
+  ) async {
+    final db = await database;
+
+    await db.delete(
+      "cached_playlist_items",
+      where: "playlist_id = ?",
+      whereArgs: [playlistId],
+    );
+
+    for (var item in items) {
+      await db.insert("cached_playlist_items", {
+        "playlist_id": playlistId,
+        ...item,
+      });
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getCachedPlaylistItems(
+    int playlistId,
+  ) async {
+    final db = await database;
+
+    return await db.query(
+      "cached_playlist_items",
+      where: "playlist_id = ?",
+      whereArgs: [playlistId],
+      orderBy: "position ASC",
+    );
   }
 }

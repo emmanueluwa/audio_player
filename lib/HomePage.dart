@@ -1,4 +1,5 @@
 import 'dart:convert' show json;
+import 'dart:io';
 
 import 'package:audio_player/app_colours.dart' as AppColors;
 import 'package:audio_player/detail_audio_page.dart';
@@ -424,7 +425,7 @@ class _HomePageState extends State<HomePage> {
                                       size: 20,
                                     ),
                                     SizedBox(width: 8),
-                                    Text("Dekete Download"),
+                                    Text("Delete Download"),
                                   ],
                                 ),
                                 onTap: () {
@@ -455,6 +456,13 @@ class _HomePageState extends State<HomePage> {
       if (localPath != null) {
         audioPath = localPath;
         print("playing from local storage: $localPath");
+
+        final file = File(localPath);
+        final exists = await file.exists();
+
+        if (exists) {
+          final fileSize = await file.length();
+        }
       } else {
         audioPath = await _audioService.getStreamUrl(audio.id);
         print("streaming from cloud");
@@ -464,7 +472,14 @@ class _HomePageState extends State<HomePage> {
         context,
         MaterialPageRoute(
           builder: (context) => DetailAudioPage(
-            audioData: [audio.toDisplayJson()],
+            audioData: [
+              {
+                "id": audio.id,
+                "title": audio.title,
+                "text": audio.author,
+                "audio": audioPath,
+              },
+            ],
             index: 0,
             isLocal: localPath != null,
           ),

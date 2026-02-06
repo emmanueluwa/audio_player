@@ -36,12 +36,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   audioplayers: ^6.5.1
 
-  dio:
-  flutter_secure_storage:
-  provider:
+  dio: ^5.7.0
+  flutter_secure_storage: ^9.2.2
+  provider: ^6.1.2
   path_provider: ^2.1.4 # Get local storage paths
   sqflite: ^2.3.3+1 # Local SQLite database
-  permission_handler: ^11.3.1 # Storage permissions
 
 dev_dependencies:
   flutter_test:

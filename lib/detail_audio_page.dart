@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:audio_player/app_colours.dart' as AppColors;
 import 'package:audio_player/audio_file.dart';
 import 'package:audio_player/services/audio_service.dart';
@@ -50,6 +52,18 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
         audioPath = audio["audio"];
 
         print("local playback: $audioPath");
+
+        if (audioPath != null) {
+          final file = File(audioPath!);
+
+          final exists = await file.exists();
+
+          if (!exists) {
+            throw Exception("file not found at: $audioPath");
+          }
+
+          final fileSize = await file.length;
+        }
       } else {
         final audioData = audio["audio"];
 
