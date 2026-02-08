@@ -125,14 +125,21 @@ class AudioService {
       );
 
       print("upload complete");
-      return response.data;
+      return Audio.fromJson(response.data);
     } on DioException catch (e) {
       if (e.response?.statusCode == 401) {
-        throw Exception("session expiredplease login again.");
+        throw Exception("session expired please login again.");
       }
 
       if (e.response?.statusCode == 415) {
-        throw Exception("invalid file type. only MP£ files are supported.");
+        throw Exception("invalid file type. only MP3 files are supported.");
+      }
+
+      if (e.response?.statusCode == 400) {
+        // Return the actual backend error message
+        final detail = e.response?.data?['detail'] ?? 'Invalid request';
+        print(detail);
+        throw Exception('Bad request: $detail');
       }
 
       throw Exception("upload failed: ${e.message}");

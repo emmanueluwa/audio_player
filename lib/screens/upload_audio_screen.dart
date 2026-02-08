@@ -96,7 +96,26 @@ class _UploadAudioScreenState extends State<UploadAudioScreen> {
       _uploadProgress = 0.0;
     });
 
-    try {} catch (e) {
+    try {
+      await _audioService.uploadAudio(
+        file: _selectedFile!,
+        title: _titleController.text.trim(),
+        author: _authorController.text.trim(),
+        onProgress: (progress) {
+          setState(() {
+            _uploadProgress = progress;
+          });
+        },
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Upload complete!")));
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      print("upload error: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

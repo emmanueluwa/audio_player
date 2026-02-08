@@ -6,6 +6,7 @@ import 'package:audio_player/detail_audio_page.dart';
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/my_tabs.dart';
 import 'package:audio_player/screens/playlists_screen.dart';
+import 'package:audio_player/screens/upload_audio_screen.dart';
 import 'package:audio_player/services/audio_service.dart';
 import 'package:audio_player/services/auth_service.dart';
 import 'package:audio_player/services/download_service.dart';
@@ -366,6 +367,21 @@ class _HomePageState extends State<HomePage> {
             },
           ),
         ],
+      ),
+
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => UploadAudioScreen()),
+          );
+
+          if (result == true) {
+            loadData();
+          }
+        },
+        backgroundColor: Colors.black87,
+        child: Icon(Icons.add, color: Colors.white),
       ),
 
       body: audios.isEmpty
