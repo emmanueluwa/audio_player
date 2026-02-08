@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:audio_player/config/api_config.dart';
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/services/auth_service.dart';
@@ -88,27 +90,51 @@ class AudioService {
   }
 
   Future<Audio> uploadAudio({
-    required String filePath,
+    required File file,
     required String title,
     required String author,
+    Function(double)? onProgress,
   }) async {
     try {
       final options = await _getAuthOptions();
 
       final formData = FormData.fromMap({
-        "file": await MultipartFile.fromFile(filePath),
+        "file": await MultipartFile.fromFile(
+          file.path,
+          filename: file.path.split("/").last,
+        ),
         "title": title,
         "author": author,
       });
+
+      print("uploading ${file.path}");
 
       final response = await _dio.post(
         "/audio/upload",
         data: formData,
         options: options,
+        onSendProgress: (sent, total) {
+          if (total > 0) {
+            final progress = sent / total;
+
+            print("upload progress: ${(progress * 100).toStringAsFixed}%");
+
+            onProgress?.call(progress);
+          }
+        },
       );
 
-      return Audio.fromJson(response.data);
+      print("upload complete");
+      return response.data;
     } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw Exception("session expiredplease login again.");
+      }
+
+      if (e.response?.statusCode == 415) {
+        throw Exception("invalid file type. only MP£ files are supported.");
+      }
+
       throw Exception("upload failed: ${e.message}");
     }
   }
