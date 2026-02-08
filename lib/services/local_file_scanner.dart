@@ -9,13 +9,16 @@ class LocalFileScanner {
   //requesting storage permission
   Future<bool> requestPermission() async {
     if (Platform.isAndroid) {
-      final status = await Permission.audio.request();
+      final audioStatus = await Permission.audio.request();
 
-      if (status.isGranted) {
+      var storageStatus = await Permission.manageExternalStorage.request();
+
+      if (audioStatus.isGranted || storageStatus.isGranted) {
         return true;
       }
 
-      if (status.isPermanentlyDenied) {
+      if (audioStatus.isPermanentlyDenied ||
+          storageStatus.isPermanentlyDenied) {
         await openAppSettings();
       }
 
@@ -84,11 +87,14 @@ class LocalFileScanner {
       //netage id indicates local-only files
       final localId = -filename.hashCode;
 
+      print("found local file: $filename");
+      print("full path: ${file.path}");
+
       return Audio(
         id: localId,
         userId: 0,
         title: title,
-        author: "Unkown",
+        author: "Unknown",
         fileUrl: file.path,
         duration: null,
         fileSize: stats.size,
