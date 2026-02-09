@@ -1,4 +1,5 @@
 import 'package:audio_player/detail_audio_page.dart';
+import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/models/playlist.dart';
 import 'package:audio_player/screens/add_to_playlist_screen.dart';
 import 'package:audio_player/services/audio_service.dart';
@@ -31,6 +32,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   String? errorMessage;
 
   Map<int, bool> downloadStatus = {};
+  Map<int, double> downloadProgress = {};
+  Set<int> currrentlyDownloading = {};
 
   @override
   void initState() {
@@ -70,6 +73,81 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
         isLoading = false;
       });
+    }
+  }
+
+  Future<void> _downloadAudio(AudioInPlaylist audio) async {
+    setState(() {
+      currrentlyDownloading.add(audio.id);
+      downloadProgress[audio.id] = 0.0;
+    });
+
+    try {
+      final streamUrl = await _audioService.getStreamUrl(audio.id);
+
+      final audioToDownload = Audio(
+        id: audio.id,
+        userId: 0,
+        title: audio.title,
+        author: audio.author,
+        fileUrl: streamUrl,
+        duration: audio.duration,
+        fileSize: audio.fileSize,
+        createdAt: audio.addedAt,
+        updatedAt: audio.addedAt,
+      );
+
+      await _downloadService.downloadAudio(
+        audio: audioToDownload,
+        onProgress: (progress) {
+          setState(() {
+            downloadProgress[audio.id] = progress;
+          });
+        },
+      );
+
+      setState(() {
+        downloadStatus[audio.id] = true;
+        currrentlyDownloading.remove(audio.id);
+        downloadProgress.remove(audio.id);
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Downloaded: ${audio.title}")));
+    } catch (e) {
+      setState(() {
+        currrentlyDownloading.remove(audio.id);
+        downloadProgress.remove(audio.id);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Download failed: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteDownload(AudioInPlaylist audio) async {
+    try {
+      await _downloadService.deleteDownload(audio.id);
+
+      setState(() {
+        downloadStatus[audio.id] = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Deleted download: ${audio.title}")),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to delete: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -246,6 +324,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               itemBuilder: (context, index) {
                 final audio = playlistDetail!.audioItems[index];
                 final isDownloaded = downloadStatus[audio.id] ?? false;
+                final isDownloading = currrentlyDownloading.contains(audio.id);
+                final progress = downloadProgress[audio.id] ?? 0.0;
 
                 return ListTile(
                   contentPadding: EdgeInsets.symmetric(
@@ -289,6 +369,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           )
                         : Icon(Icons.music_note, color: Colors.white, size: 28),
                   ),
+
                   title: Text(
                     audio.title,
                     style: TextStyle(
@@ -299,6 +380,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -345,33 +427,116 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           ],
                         ],
                       ),
+                      if (isDownloading) ...[
+                        SizedBox(height: 8),
+                        LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: Colors.grey[200],
+                          color: Colors.blue,
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          "Downloading ${(progress * 100).toStringAsFixed(0)}%",
+                          style: TextStyle(fontSize: 12, color: Colors.blue),
+                        ),
+                      ],
                     ],
                   ),
 
-                  trailing: PopupMenuButton(
-                    icon: Icon(Icons.more_vert, color: Colors.black87),
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.remove_circle_outline,
-                              color: Colors.red,
-                              size: 20,
+                  trailing: isDownloading
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.blue,
+                          ),
+                        )
+                      : PopupMenuButton(
+                          icon: Icon(Icons.more_vert, color: Colors.black87),
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.play_arrow,
+                                    color: Colors.black87,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text("Play"),
+                                ],
+                              ),
+                              onTap: () {
+                                Future.delayed(
+                                  Duration.zero,
+                                  () => _playAudio(audio),
+                                );
+                              },
                             ),
-                            SizedBox(width: 8),
-                            Text("Remove from playlist"),
+
+                            //download option
+                            if (!isDownloaded)
+                              PopupMenuItem(
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.download,
+                                      color: Colors.blue,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text("Download"),
+                                  ],
+                                ),
+                                onTap: () {
+                                  Future.delayed(
+                                    Duration.zero,
+                                    () => _downloadAudio(audio),
+                                  );
+                                },
+                              ),
+                            if (isDownloaded)
+                              PopupMenuItem(
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.orange,
+                                      size: 20,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text("Delete Download"),
+                                  ],
+                                ),
+                                onTap: () {
+                                  Future.delayed(
+                                    Duration.zero,
+                                    () => _deleteDownload(audio),
+                                  );
+                                },
+                              ),
+                            PopupMenuItem(
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.remove_circle_outline,
+                                    color: Colors.red,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text("Remove from playlist"),
+                                ],
+                              ),
+                              onTap: () {
+                                Future.delayed(
+                                  Duration.zero,
+                                  () => _showRemoveConfirmation(audio),
+                                );
+                              },
+                            ),
                           ],
                         ),
-                        onTap: () {
-                          Future.delayed(
-                            Duration.zero,
-                            () => _showRemoveConfirmation(audio),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
 
                   onTap: () => _playAudio(audio),
                 );
