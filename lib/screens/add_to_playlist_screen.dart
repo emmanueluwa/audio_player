@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/services/audio_service.dart';
+import 'package:audio_player/services/local_file_scanner.dart';
 import 'package:audio_player/services/playlist_service.dart';
 import 'package:flutter/material.dart';
 
@@ -20,13 +23,14 @@ class AddToPlaylistScreen extends StatefulWidget {
 class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
   final AudioService _audioService = AudioService();
   final PlaylistService _playlistService = PlaylistService();
+  final LocalFileScanner _localScanner = LocalFileScanner();
 
-  List<Audio> allAudio = [];
+  List<Audio> availableAudio = [];
 
   bool isLoading = true;
   String? errorMessage;
 
-  Set<int> addingIds = {};
+  Set<int> uploadingFiles = {};
 
   @override
   void initState() {
@@ -42,10 +46,43 @@ class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
     });
 
     try {
-      final audio = await _audioService.getLibrary();
+      List<Audio> allAudio = [];
+
+      //cloud files
+      try {
+        final cloudAudio = await _audioService.getLibrary();
+        allAudio.addAll(cloudAudio);
+      } catch (e) {
+        print("failed to load cloud files $e");
+      }
+
+      //desktop synced files
+      final hasPermission = await _localScanner.requestPermission();
+      if (hasPermission) {
+        final localAudio = await _localScanner.scanLocalFiles();
+
+        //filter out duplicates
+        final cloudTitles = allAudio.map((a) => a.title.toLowerCase()).toSet();
+        final uniqueLocalFiles = localAudio.where((local) {
+          return !cloudTitles.contains(local.title.toLowerCase());
+        }).toList();
+
+        allAudio.addAll(uniqueLocalFiles);
+      }
+
+      //filter out audio already in playlist
+      final playlistDetail = await _playlistService.getPlaylistDetail(
+        widget.playlistId,
+      );
+
+      final audioIdsInPlaylist = playlistDetail.audioItems
+          .map((item) => item.id)
+          .toSet();
 
       setState(() {
-        allAudio = audio;
+        availableAudio = allAudio
+            .where((audio) => !audioIdsInPlaylist.contains(audio.id))
+            .toList();
 
         isLoading = false;
       });
@@ -57,40 +94,87 @@ class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
     }
   }
 
-  Future<void> _addToPlaylist(Audio audio) async {
+  Future<int?> _uploadDesktopFileToBackend(Audio localAudio) async {
     setState(() {
-      addingIds.add(audio.id);
+      uploadingFiles.add(localAudio.id);
     });
 
     try {
+      print("uploading desktop file to backend: ${localAudio.fileUrl}");
+
+      //read the file from local storage
+      final file = File(localAudio.fileUrl);
+
+      if (!await file.exists()) {
+        throw Exception("file not found: ${localAudio.fileUrl}");
+      }
+
+      //upload to backend
+      final uploadedAudio = await _audioService.uploadAudio(
+        file: file,
+        title: localAudio.title,
+        author: localAudio.author,
+        onProgress: (pogress) {
+          print("upload: ${(pogress * 100).toInt()}%");
+        },
+      );
+
+      print(
+        "upload complete: ${uploadedAudio.title} (ID: ${uploadedAudio.id})",
+      );
+
+      return uploadedAudio.id;
+    } finally {
+      setState(() {
+        uploadingFiles.remove(localAudio.id);
+      });
+    }
+  }
+
+  Future<void> _addToPlaylist(Audio audio) async {
+    try {
+      int audioIdToAdd;
+
+      //handling desktop files
+      if (audio.id < 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Uploading to cloud first..."),
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        final cloudAudioId = await _uploadDesktopFileToBackend(audio);
+
+        if (cloudAudioId == null) {
+          throw Exception("Upload failed");
+        }
+
+        audioIdToAdd = cloudAudioId;
+      } else {
+        audioIdToAdd = audio.id;
+      }
+
       await _playlistService.addAudioToPlaylist(
         playlistId: widget.playlistId,
-        audioId: audio.id,
+        audioId: audioIdToAdd,
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Added to ${widget.playlistName}")),
         );
+
+        Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              e.toString().contains("already in playlist")
-                  ? "Already in playlist"
-                  : "Failed to add: $e",
-            ),
-            backgroundColor: Colors.orange,
+            content: Text("Failed to add: $e"),
+            backgroundColor: Colors.red,
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          addingIds.remove(audio.id);
-        });
       }
     }
   }
@@ -159,15 +243,16 @@ class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
                 ],
               ),
             )
-          : allAudio.isEmpty
+          : availableAudio.isEmpty
           ? Center(child: Text("No audio files available"))
           : ListView.separated(
-              itemCount: allAudio.length,
+              itemCount: availableAudio.length,
               separatorBuilder: (context, index) =>
                   Divider(height: 1, indent: 72),
               itemBuilder: (context, index) {
-                final audio = allAudio[index];
-                final isAdding = addingIds.contains(audio.id);
+                final audio = availableAudio[index];
+                final isLocalFile = audio.id < 0;
+                final isAdding = uploadingFiles.contains(audio.id);
 
                 return ListTile(
                   contentPadding: EdgeInsets.symmetric(
@@ -178,14 +263,18 @@ class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: Colors.blue,
+                      color: isLocalFile ? Colors.green : Colors.blue,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(
-                      Icons.music_note,
-                      color: Colors.white,
-                      size: 28,
-                    ),
+                    child: isAdding
+                        ? Padding(
+                            padding: EdgeInsets.all(12),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Icon(Icons.music_note, color: Colors.white, size: 28),
                   ),
                   title: Text(
                     audio.title,
@@ -197,6 +286,7 @@ class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -207,25 +297,28 @@ class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: 4),
-                      if (audio.duration != null)
+                      if (isLocalFile) ...[
+                        SizedBox(height: 4),
                         Row(
                           children: [
                             Icon(
-                              Icons.access_time,
-                              size: 14,
-                              color: Colors.grey[400],
+                              Icons.desktop_windows,
+                              size: 12,
+                              color: Colors.green,
                             ),
                             SizedBox(width: 4),
                             Text(
-                              _formatDuration(audio.duration!),
+                              isAdding
+                                  ? "Uploading..."
+                                  : "Desktop file (will upload)",
                               style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[400],
+                                fontSize: 11,
+                                color: Colors.green,
                               ),
                             ),
                           ],
                         ),
+                      ],
                     ],
                   ),
 
@@ -235,14 +328,11 @@ class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
                           height: 24,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: Colors.black87,
+                            color: Colors.blue,
                           ),
                         )
-                      : IconButton(
-                          onPressed: () => _addToPlaylist(audio),
-                          icon: Icon(Icons.add_circle_outline),
-                          color: Colors.black87,
-                        ),
+                      : Icon(Icons.add_circle_outline, color: Colors.blue),
+                  onTap: isAdding ? null : () => _addToPlaylist(audio),
                 );
               },
             ),
