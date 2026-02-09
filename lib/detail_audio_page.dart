@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:audio_player/app_colours.dart' as AppColors;
 import 'package:audio_player/audio_file.dart';
+import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/services/audio_service.dart';
+import 'package:audio_player/services/download_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
@@ -25,6 +27,11 @@ class DetailAudioPage extends StatefulWidget {
 class _DetailAudioPageState extends State<DetailAudioPage> {
   late AudioPlayer advancedPlayer;
   final AudioService _audioService = AudioService();
+  final DownloadService _downloadService = DownloadService();
+
+  bool isDownloaded = false;
+  bool isDownloading = false;
+  double downloadedProgress = 0.0;
 
   String? audioPath;
   bool isLoadingUrl = true;
@@ -37,6 +44,105 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
     advancedPlayer = AudioPlayer();
 
     _loadAudioPath();
+
+    _checkDownloadStatus();
+  }
+
+  Future<void> _checkDownloadStatus() async {
+    final audioId = widget.audioData[widget.index]["id"];
+
+    //skip local files
+    if (audioId < 0) return;
+
+    final downloaded = await _downloadService.isDownloaded(audioId);
+    setState(() {
+      isDownloaded = downloaded;
+    });
+  }
+
+  Future<void> _downloadAudio() async {
+    final audioData = widget.audioData[widget.index];
+    final audioId = audioData["id"];
+
+    //do not download local files
+    if (audioId < 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("This file is already local")));
+
+      return;
+    }
+
+    setState(() {
+      isDownloading = true;
+      downloadedProgress = 0.0;
+    });
+
+    try {
+      final audio = Audio(
+        id: audioId,
+        userId: 0,
+        title: audioData["title"],
+        author: audioData["text"],
+        fileUrl: audioData["audio"],
+        duration: null,
+        fileSize: null,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await _downloadService.downloadAudio(
+        audio: audio,
+        onProgress: (progress) {
+          setState(() {
+            downloadedProgress = progress;
+          });
+        },
+      );
+
+      setState(() {
+        isDownloaded = true;
+        isDownloading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Download: ${audioData["title"]}")),
+      );
+    } catch (e) {
+      setState(() {
+        isDownloading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Download failed: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteDownload() async {
+    final audioId = widget.audioData[widget.index]["id"];
+
+    try {
+      await _downloadService.deleteDownload(audioId);
+
+      setState(() {
+        isDownloaded = false;
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Deleted download")));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Failed to delete: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _loadAudioPath() async {
@@ -199,6 +305,63 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                       audioPath: audioPath!,
                       isLocal: widget.isLocal,
                     ),
+
+                    SizedBox(height: 24),
+
+                    //download button for cloud files
+                    if (audio["id"] > 0)
+                      isDownloading
+                          ? Column(
+                              children: [
+                                SizedBox(
+                                  width: 60,
+                                  height: 60,
+                                  child: CircularProgressIndicator(
+                                    value: downloadedProgress,
+                                    strokeWidth: 4,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  "Downloading ${(downloadedProgress * 100).toInt()}%",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ElevatedButton.icon(
+                              onPressed: isDownloaded
+                                  ? _deleteDownload
+                                  : _downloadAudio,
+                              icon: Icon(
+                                isDownloaded
+                                    ? Icons.delete_outline
+                                    : Icons.download,
+                                size: 20,
+                              ),
+                              label: Text(
+                                isDownloaded
+                                    ? "Delete Download"
+                                    : "Download for Offline",
+                                style: TextStyle(fontSize: 14),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isDownloaded
+                                    ? Colors.orange
+                                    : Colors.blue,
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
 
                     Spacer(),
                   ],
