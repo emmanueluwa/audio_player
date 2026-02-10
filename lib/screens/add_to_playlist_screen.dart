@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/services/audio_service.dart';
 import 'package:audio_player/services/local_file_scanner.dart';
@@ -24,6 +25,7 @@ class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
   final AudioService _audioService = AudioService();
   final PlaylistService _playlistService = PlaylistService();
   final LocalFileScanner _localScanner = LocalFileScanner();
+  final LocalDatabase _localDb = LocalDatabase.instance;
 
   List<Audio> availableAudio = [];
 
@@ -122,6 +124,10 @@ class _AddToPlaylistScreenState extends State<AddToPlaylistScreen> {
       print(
         "upload complete: ${uploadedAudio.title} (ID: ${uploadedAudio.id})",
       );
+
+      //create mapping between cloud id and local path
+      await _localDb.setAudioLocalPath(uploadedAudio.id, localAudio.fileUrl);
+      print("mapped cloud id ${uploadedAudio.id} -> ${localAudio.fileUrl}");
 
       return uploadedAudio.id;
     } finally {
