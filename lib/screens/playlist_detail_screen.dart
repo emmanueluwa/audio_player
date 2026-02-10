@@ -394,21 +394,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       SizedBox(height: 4),
                       Row(
                         children: [
-                          if (audio.duration != null) ...[
-                            Icon(
-                              Icons.access_time,
-                              size: 14,
-                              color: Colors.grey[400],
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              _formatDuration(audio.duration!),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[400],
-                              ),
-                            ),
-                          ],
                           if (isDownloaded) ...[
                             SizedBox(width: 12),
                             Icon(

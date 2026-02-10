@@ -496,22 +496,6 @@ class _HomePageState extends State<HomePage> {
                         SizedBox(height: 4),
                         Row(
                           children: [
-                            if (audio.duration != null) ...[
-                              Icon(
-                                Icons.access_time,
-                                size: 14,
-                                color: Colors.grey[400],
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                _formatDuration(audio.duration!),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[400],
-                                ),
-                              ),
-                              SizedBox(width: 12),
-                            ],
                             //source indicator
                             Icon(
                               isLocalFile ? Icons.desktop_windows : Icons.cloud,

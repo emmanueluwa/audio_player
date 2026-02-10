@@ -21,7 +21,7 @@ class LocalDatabase {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -81,6 +81,14 @@ class LocalDatabase {
     added_at TEXT NOT NULL
   )
 ''');
+
+    await db.execute('''
+    CREATE TABLE audio_local_paths (
+      audio_id INTEGER PRIMARY KEY,
+      local_path TEXT NOT NULL,
+      synced_at TEXT NOT NULL
+    )
+''');
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -139,6 +147,68 @@ class LocalDatabase {
       )
 ''');
     }
+
+    if (oldVersion < 4) {
+      await db.execute('''
+      CREATE TABLE IF NOT EXISTS audio_local_paths (
+        audio_id INTEGER PRIMARY KEY,
+        local_path TEXT NOT NULL,
+        synced_at TEXT NOT NULL
+      )
+''');
+    }
+  }
+
+  //store mapping between audio_id and local file path
+  Future<void> setAudioLocalPath(int audioId, String localPath) async {
+    final db = await database;
+
+    await db.insert("audio_local_paths", {
+      "audio_id": audioId,
+      "local_path": localPath,
+      "synced_at": DateTime.now().toIso8601String(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+    print("Mapped audio_id $audioId -> $localPath");
+  }
+
+  Future<String?> getAudioLocalPath(int audioId) async {
+    final db = await database;
+
+    final results = await db.query(
+      "audio_local_paths",
+      where: "audio_id = ?",
+      whereArgs: [audioId],
+      limit: 1,
+    );
+
+    if (results.isEmpty) return null;
+
+    return results.first["local_path"] as String;
+  }
+
+  //rmeove mapping
+  Future<void> deleteAudioLocalPath(int audioId) async {
+    final db = await database;
+
+    await db.delete(
+      "audio_local_paths",
+      where: "audio_id = ?",
+      whereArgs: [audioId],
+    );
+  }
+
+  Future<Map<int, String>> getAllAudioLocalPaths() async {
+    final db = await database;
+
+    final results = await db.query("audio_local_paths");
+
+    final Map<int, String> mappings = {};
+    for (var row in results) {
+      mappings[row["audio_id"] as int] = row["local_path"] as String;
+    }
+
+    return mappings;
   }
 
   Future<void> insertDownloadedAudio(Map<String, dynamic> audio) async {
