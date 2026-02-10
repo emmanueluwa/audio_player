@@ -693,19 +693,9 @@ class _HomePageState extends State<HomePage> {
 
         print("playing local file: $audioPath");
       } else {
-        final localPath = await _downloadService.getLocalPath(audio.id);
-
-        if (localPath != null) {
-          audioPath = localPath;
-          isLocal = true;
-
-          print("plating from download: $localPath");
-        } else {
-          audioPath = await _audioService.getStreamUrl(audio.id);
-          isLocal = false;
-
-          print("streaming from cloud");
-        }
+        final playbackInfo = await _audioService.getPlaybackPath(audio.id);
+        audioPath = playbackInfo["path"];
+        isLocal = playbackInfo["isLocal"];
       }
 
       Navigator.push(
