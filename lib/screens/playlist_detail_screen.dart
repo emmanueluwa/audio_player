@@ -408,22 +408,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               ),
                             ),
                           ],
-                          if (offlineAvailable[audio.id] ?? false) ...[
-                            SizedBox(width: 12),
-                            Icon(
-                              Icons.offline_pin,
-                              size: 14,
-                              color: Colors.green,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              "Offline",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.green,
-                              ),
-                            ),
-                          ],
+
                           if (offlineAvailable[audio.id] ?? false) ...[
                             SizedBox(width: 12),
                             Icon(

@@ -4,7 +4,6 @@ import 'package:audio_player/config/api_config.dart';
 import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/services/auth_service.dart';
-import 'package:audio_player/services/download_service.dart';
 import 'package:dio/dio.dart';
 
 class AudioService {
@@ -18,7 +17,6 @@ class AudioService {
 
   final AuthService _authService = AuthService();
   final LocalDatabase _localDb = LocalDatabase.instance;
-  final DownloadService _downloadService = DownloadService();
 
   Future<Options> _getAuthOptions() async {
     final token = await _authService.getToken();
@@ -40,13 +38,30 @@ class AudioService {
       }
     }
 
-    final downloadPath = await _downloadService.getLocalPath(audioId);
+    final downloadPath = await _getDownloadPath(audioId);
     if (downloadPath != null) {
       return {"path": downloadPath, "isLocal": true, "source": "download"};
     }
 
     final streamUrl = await getStreamUrl(audioId);
     return {"path": streamUrl, "isLocal": false, "source": "stream"};
+  }
+
+  Future<String?> _getDownloadPath(int audioId) async {
+    try {
+      final downloaded = await _localDb.getDownloadedAudioById(audioId);
+      if (downloaded != null) {
+        final localPath = downloaded["local_path"] as String;
+        final file = File(localPath);
+        if (await file.exists()) {
+          return localPath;
+        }
+      }
+
+      return null;
+    } catch (e) {
+      return null;
+    }
   }
 
   //get users library
