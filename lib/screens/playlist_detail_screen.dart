@@ -393,7 +393,22 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       SizedBox(height: 4),
                       Row(
                         children: [
-                          if (isDownloaded) ...[
+                          if (audio.duration != null) ...[
+                            Icon(
+                              Icons.access_time,
+                              size: 14,
+                              color: Colors.grey[400],
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              _formatDuration(audio.duration!),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green[400],
+                              ),
+                            ),
+                          ],
+                          if (offlineAvailable[audio.id] ?? false) ...[
                             SizedBox(width: 12),
                             Icon(
                               Icons.offline_pin,
@@ -406,6 +421,37 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.green,
+                              ),
+                            ),
+                          ],
+                          if (offlineAvailable[audio.id] ?? false) ...[
+                            SizedBox(width: 12),
+                            Icon(
+                              Icons.offline_pin,
+                              size: 14,
+                              color: Colors.green,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              "Offline",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.green,
+                              ),
+                            ),
+                          ] else ...[
+                            SizedBox(width: 12),
+                            Icon(
+                              Icons.cloud_queue,
+                              size: 14,
+                              color: Colors.orange,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              "Download Required",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange,
                               ),
                             ),
                           ],
