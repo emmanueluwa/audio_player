@@ -1,3 +1,4 @@
+import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/detail_audio_page.dart';
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/models/playlist.dart';
@@ -25,6 +26,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   final PlaylistService _playlistService = PlaylistService();
   final AudioService _audioService = AudioService();
   final DownloadService _downloadService = DownloadService();
+  final LocalDatabase _localDb = LocalDatabase.instance;
 
   PlaylistDetail? playlistDetail;
 
@@ -32,6 +34,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   String? errorMessage;
 
   Map<int, bool> downloadStatus = {};
+  Map<int, bool> offlineAvailable = {};
   Map<int, double> downloadProgress = {};
   Set<int> currrentlyDownloading = {};
 
@@ -55,15 +58,23 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       );
 
       Map<int, bool> status = {};
+      Map<int, bool> offline = {};
 
       for (var audio in detail.audioItems) {
-        status[audio.id] = await _downloadService.isDownloaded(audio.id);
+        final isDownloaded = await _downloadService.isDownloaded(audio.id);
+        status[audio.id] = isDownloaded;
+
+        final hasLocalPath = await _localDb.getAudioLocalPath(audio.id);
+
+        offline[audio.id] = isDownloaded || (hasLocalPath != null);
       }
 
       setState(() {
         playlistDetail = detail;
 
         downloadStatus = status;
+
+        offlineAvailable = offline;
 
         isLoading = false;
       });
@@ -175,20 +186,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
   Future<void> _playAudio(AudioInPlaylist audio) async {
     try {
-      final localPath = await _downloadService.getLocalPath(audio.id);
-
-      String audioPath;
-      bool isLocal;
-
-      if (localPath != null) {
-        audioPath = localPath;
-
-        isLocal = true;
-      } else {
-        audioPath = await _audioService.getStreamUrl(audio.id);
-
-        isLocal = false;
-      }
+      final playbackInfo = await _audioService.getPlaybackPath(audio.id);
 
       Navigator.push(
         context,
@@ -199,11 +197,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 "id": audio.id,
                 "title": audio.title,
                 "text": audio.author,
-                "audio": audioPath,
+                "audio": playbackInfo["path"],
               },
             ],
             index: 0,
-            isLocal: isLocal,
+            isLocal: playbackInfo["isLocal"],
           ),
         ),
       );
@@ -211,7 +209,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            e.toString().contains("connection")
+            e.toString().contains("connection") ||
+                    e.toString().contains("network")
                 ? "Audio not available offline. Download it first."
                 : "Failed to load audio: $e",
           ),
