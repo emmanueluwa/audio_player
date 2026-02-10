@@ -2,6 +2,7 @@ import 'dart:convert' show json;
 import 'dart:io';
 
 import 'package:audio_player/app_colours.dart' as AppColors;
+import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/detail_audio_page.dart';
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/my_tabs.dart';
@@ -35,6 +36,7 @@ class _HomePageState extends State<HomePage> {
   final AudioService _audioService = AudioService();
   final DownloadService _downloadService = DownloadService();
   final LocalFileScanner _localScanner = LocalFileScanner();
+  final LocalDatabase _localDb = LocalDatabase.instance;
 
   int cloudFileCount = 0;
   int localFileCount = 0;
@@ -72,35 +74,68 @@ class _HomePageState extends State<HomePage> {
         cloudFileCount = 0;
       }
 
+      final localPathMappings = await _localDb.getAllAudioLocalPaths();
+      print("found ${localPathMappings.length} cloud->local mappings");
+
       //request permission and scan local files
       final hasPermission = await _localScanner.requestPermission();
       if (hasPermission) {
         final localAudio = await _localScanner.scanLocalFiles();
 
-        // filter out local files already in cloud
-        final cloudTitles = allAudio.map((a) => a.title.toLowerCase()).toSet();
+        // build map of cloud files by title
+        final cloudTitleMap = <String, Audio>{};
+        for (var audio in allAudio) {
+          cloudTitleMap[audio.title.toLowerCase()] = audio;
+        }
 
-        final uniqueLocalFiles = localAudio.where((local) {
-          return !cloudTitles.contains(local.title.toLowerCase());
-        }).toList();
+        //set of local paths that are already mapped
+        final mappedPaths = localPathMappings.values.toSet();
 
-        allAudio.addAll(uniqueLocalFiles);
+        //process each local file
+        for (var local in localAudio) {
+          final cloudMatch = cloudTitleMap[local.title.toLowerCase()];
 
-        localFileCount = uniqueLocalFiles.length;
+          if (cloudMatch != null) {
+            //mark as downloaded since local copy exists
+            downloadStatus[cloudMatch.id] = true;
 
-        print("loaded ${uniqueLocalFiles.length} local files");
+            print(
+              " '${local.title} -> cloud id ${cloudMatch.id} (marked offline)'",
+            );
+
+            //create mapping if it does not exist
+            if (!localPathMappings.containsKey(cloudMatch.id)) {
+              await _localDb.setAudioLocalPath(cloudMatch.id, local.fileUrl);
+
+              print("created mapping: ${cloudMatch.id} -> ${local.fileUrl}");
+            }
+          } else if (!mappedPaths.contains(local.fileUrl)) {
+            allAudio.add(local);
+            localFileCount++;
+          }
+        }
+
+        print("loaded ${localFileCount} local files");
       }
-
-      allAudio.sort((a, b) => a.author.compareTo(b.author));
 
       //check download status for cloud files
       Map<int, bool> status = {};
       for (var audio in allAudio) {
         //positive id means it is a cloud file
         if (audio.id > 0) {
-          status[audio.id] = await _downloadService.isDownloaded(audio.id);
+          if (!downloadStatus.containsKey(audio.id)) {
+            final isDownloaded = await _downloadService.isDownloaded(audio.id);
+
+            final hasLocalPath = localPathMappings.containsKey(audio.id);
+
+            status[audio.id] = isDownloaded || hasLocalPath;
+          } else {
+            status[audio.id] = downloadStatus[audio.id]!;
+          }
         }
       }
+
+      allAudio.sort((a, b) => a.author.compareTo(b.author));
 
       setState(() {
         audios = allAudio;
