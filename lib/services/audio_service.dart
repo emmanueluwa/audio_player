@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:audio_player/config/api_config.dart';
+import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/services/auth_service.dart';
+import 'package:audio_player/services/download_service.dart';
 import 'package:dio/dio.dart';
 
 class AudioService {
@@ -15,11 +17,36 @@ class AudioService {
   );
 
   final AuthService _authService = AuthService();
+  final LocalDatabase _localDb = LocalDatabase.instance;
+  final DownloadService _downloadService = DownloadService();
 
   Future<Options> _getAuthOptions() async {
     final token = await _authService.getToken();
 
     return Options(headers: {"Authorization": "Bearer $token"});
+  }
+
+  Future<Map<String, dynamic>> getPlaybackPath(int audioId) async {
+    // checking if it is a local file with local path mapping
+    final localPath = await _localDb.getAudioLocalPath(audioId);
+    if (localPath != null) {
+      final file = File(localPath);
+      if (await file.exists()) {
+        return {"path": localPath, "isLocal": true, "source": "desktop"};
+      } else {
+        print("local path mapped but file missing: $localPath");
+
+        await _localDb.deleteAudioLocalPath(audioId);
+      }
+    }
+
+    final downloadPath = await _downloadService.getLocalPath(audioId);
+    if (downloadPath != null) {
+      return {"path": downloadPath, "isLocal": true, "source": "download"};
+    }
+
+    final streamUrl = await getStreamUrl(audioId);
+    return {"path": streamUrl, "isLocal": false, "source": "stream"};
   }
 
   //get users library
