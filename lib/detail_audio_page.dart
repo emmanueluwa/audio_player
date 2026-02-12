@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:audio_player/app_colours.dart' as AppColors;
 import 'package:audio_player/audio_file.dart';
+import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/services/audio_service.dart';
 import 'package:audio_player/services/download_service.dart';
@@ -28,6 +28,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
   late AudioPlayer advancedPlayer;
   final AudioService _audioService = AudioService();
   final DownloadService _downloadService = DownloadService();
+  final LocalDatabase _localDb = LocalDatabase.instance;
 
   bool isDownloaded = false;
   bool isDownloading = false;
@@ -55,8 +56,10 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
     if (audioId < 0) return;
 
     final downloaded = await _downloadService.isDownloaded(audioId);
+    final hasLocalPath = await _localDb.getAudioLocalPath(audioId);
+
     setState(() {
-      isDownloaded = downloaded;
+      isDownloaded = downloaded || (hasLocalPath != null);
     });
   }
 

@@ -1,11 +1,8 @@
-import 'dart:convert' show json;
 import 'dart:io';
 
-import 'package:audio_player/app_colours.dart' as AppColors;
 import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/detail_audio_page.dart';
 import 'package:audio_player/models/audio.dart';
-import 'package:audio_player/my_tabs.dart';
 import 'package:audio_player/screens/playlists_screen.dart';
 import 'package:audio_player/screens/upload_audio_screen.dart';
 import 'package:audio_player/services/audio_service.dart';
@@ -56,10 +53,13 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
+      cloudFileCount = 0;
+      localFileCount = 0;
+
       //adding both cloud and local files
       List<Audio> allAudio = [];
 
-      //load cloud files from backend
+      //load cloud files from backend or local
       try {
         final cloudAudio = await _audioService.getLibrary();
 
@@ -70,8 +70,6 @@ class _HomePageState extends State<HomePage> {
         print("loaded ${cloudAudio.length} cloud files");
       } catch (e) {
         print("failed to load cloud files: $e");
-
-        cloudFileCount = 0;
       }
 
       Map<int, String> localPathMappings = {};
@@ -226,17 +224,82 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _deleteDownload(Audio audio) async {
-    try {
-      await _downloadService.deleteDownload(audio.id);
+    final confirmed = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Delete '${audio.title}' permanently?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text("Delete"),
+          ),
+        ],
+      ),
+    );
 
-      setState(() {
-        downloadStatus[audio.id] = false;
-      });
+    if (confirmed != true) return;
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) =>
+            Center(child: CircularProgressIndicator(color: Colors.black87)),
+      );
+
+      // handling local only file
+      if (audio.id < 0) {
+        final file = File(audio.fileUrl);
+
+        if (await file.exists()) {
+          await file.delete();
+        } else {
+          throw Exception("File not found at: ${file.path}");
+        }
+      }
+      //handling cloud files
+      else {
+        //check for local path mapping (desktop synced file)
+        final localPath = await _localDb.getAudioLocalPath(audio.id);
+
+        if (localPath != null) {
+          final localFile = File(localPath);
+          if (await localFile.exists()) {
+            await localFile.delete();
+          } else {
+            print("local file missing: $localPath");
+          }
+
+          await _localDb.deleteAudioLocalPath(audio.id);
+        }
+
+        //check if in download folder
+        final isDownloaded = await _downloadService.isDownloaded(audio.id);
+        if (isDownloaded) {
+          await _downloadService.deleteDownload(audio.id);
+        }
+
+        //delete from backend postgres and s3
+        await _audioService.deleteAudio(audio.id);
+      }
+
+      Navigator.pop(context);
+
+      await loadData();
 
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Deleted: ${audio.title}")));
     } catch (e) {
+      Navigator.pop(context);
+
+      print("delete error: $e");
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Failed to delete: $e"),
@@ -277,16 +340,7 @@ class _HomePageState extends State<HomePage> {
 
       //local file
       if (audio.id < 0) {
-        print('🗑️ DELETE DEBUG:');
-        print('   Audio ID: ${audio.id}');
-        print('   Audio title: ${audio.title}');
-        print('   Audio fileUrl: ${audio.fileUrl}');
-        print('   Type of fileUrl: ${audio.fileUrl.runtimeType}');
-
         final file = File(audio.fileUrl);
-
-        print('   File object path: ${file.path}');
-        print('   File exists check...');
 
         if (await file.exists()) {
           await file.delete();
@@ -296,6 +350,20 @@ class _HomePageState extends State<HomePage> {
           throw Exception("file not dound at: ${file.path}");
         }
       } else {
+        //check for local path mapping (desktop synced file)
+        final localPath = await _localDb.getAudioLocalPath(audio.id);
+
+        if (localPath != null) {
+          final localFile = File(localPath);
+          if (await localFile.exists()) {
+            await localFile.delete();
+          } else {
+            print("local file already missing: $localPath");
+          }
+
+          await _localDb.deleteAudioLocalPath(audio.id);
+        }
+
         final isDownloaded = await _downloadService.isDownloaded(audio.id);
         if (isDownloaded) {
           await _downloadService.deleteDownload(audio.id);
@@ -315,7 +383,6 @@ class _HomePageState extends State<HomePage> {
       Navigator.pop(context);
 
       print("Delete error: $e");
-      print("error type: ${e.runtimeType}");
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -436,32 +503,46 @@ class _HomePageState extends State<HomePage> {
         child: Icon(Icons.add, color: Colors.white),
       ),
 
-      body: audios.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: RefreshIndicator(
+        onRefresh: loadData,
+        child: audios.isEmpty
+            ? ListView(
+                physics: AlwaysScrollableScrollPhysics(),
                 children: [
-                  Icon(
-                    Icons.music_note_outlined,
-                    size: 64,
-                    color: Colors.grey[360],
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    "No audio files",
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    "Upload files",
-                    style: TextStyle(fontSize: 14, color: Colors.grey[400]),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.music_note_outlined,
+                          size: 64,
+                          color: Colors.grey[360],
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          "No audio files",
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          "Upload files",
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-              ),
-            )
-          : RefreshIndicator(
-              onRefresh: loadData,
-              child: ListView.separated(
+              )
+            : ListView.separated(
+                physics: AlwaysScrollableScrollPhysics(),
                 itemBuilder: (context, index) {
                   final audio = audios[index];
 
@@ -481,7 +562,9 @@ class _HomePageState extends State<HomePage> {
                       width: 56,
                       height: 56,
                       decoration: BoxDecoration(
-                        color: isLocalFile ? Colors.green : Colors.blue,
+                        color: isLocalFile || downloadStatus[audio.id] == true
+                            ? Colors.green
+                            : Colors.blue,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: isDownloaded || isLocalFile
@@ -500,16 +583,12 @@ class _HomePageState extends State<HomePage> {
                                   child: Container(
                                     padding: EdgeInsets.all(2),
                                     decoration: BoxDecoration(
-                                      color: isLocalFile
-                                          ? Colors.white
-                                          : Colors.green,
+                                      color: Colors.white,
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
                                       Icons.check,
-                                      color: isLocalFile
-                                          ? Colors.green
-                                          : Colors.white,
+                                      color: Colors.green,
                                       size: 12,
                                     ),
                                   ),
@@ -549,22 +628,21 @@ class _HomePageState extends State<HomePage> {
                         Row(
                           children: [
                             //source indicator
-                            Icon(
-                              isLocalFile ? Icons.desktop_windows : Icons.cloud,
-                              size: 14,
-                              color: isLocalFile ? Colors.green : Colors.blue,
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              isLocalFile ? "Desktop" : "Cloud",
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isLocalFile ? Colors.green : Colors.blue,
+                            if (isLocalFile) ...[
+                              Icon(
+                                Icons.desktop_windows,
+                                size: 14,
+                                color: Colors.green,
                               ),
-                            ),
-
-                            if (isDownloaded && isCloudFile) ...[
-                              SizedBox(width: 12),
+                              SizedBox(width: 4),
+                              Text(
+                                "Desktop",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ] else if (isDownloaded) ...[
                               Icon(
                                 Icons.offline_pin,
                                 size: 14,
@@ -576,6 +654,16 @@ class _HomePageState extends State<HomePage> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.green,
+                                ),
+                              ),
+                            ] else ...[
+                              Icon(Icons.cloud, size: 14, color: Colors.blue),
+                              SizedBox(width: 4),
+                              Text(
+                                "Cloud",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.blue,
                                 ),
                               ),
                             ],
@@ -695,7 +783,7 @@ class _HomePageState extends State<HomePage> {
                     Divider(height: 1, indent: 72),
                 itemCount: audios.length,
               ),
-            ),
+      ),
     );
   }
 
