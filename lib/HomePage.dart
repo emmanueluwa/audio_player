@@ -801,13 +801,15 @@ class _HomePageState extends State<HomePage> {
         String audioPath;
         bool isLocal;
 
-        if (audio.id < 0) {
-          audioPath = audio.fileUrl;
+        if (audioItem.id < 0) {
+          audioPath = audioItem.fileUrl;
           isLocal = true;
 
           print("playing local file: $audioPath");
         } else {
-          final playbackInfo = await _audioService.getPlaybackPath(audio.id);
+          final playbackInfo = await _audioService.getPlaybackPath(
+            audioItem.id,
+          );
 
           audioPath = playbackInfo["path"] as String;
           isLocal = playbackInfo["isLocal"];

@@ -155,9 +155,12 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
   }
 
   Future<void> _loadAudioPath() async {
+    await advancedPlayer.stop();
+
     setState(() {
       isLoadingUrl = true;
       errorMessage = null;
+      audioPath = null;
     });
 
     try {
@@ -173,9 +176,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
         if (audioPath != null) {
           final file = File(audioPath!);
 
-          final exists = await file.exists();
-
-          if (!exists) {
+          if (!await file.exists()) {
             throw Exception("file not found at: $audioPath");
           }
         }
@@ -186,10 +187,14 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
         currentTrackIsLocal = playbackInfo["isLocal"];
       }
 
+      if (!mounted) return;
+
       setState(() {
         isLoadingUrl = false;
       });
     } catch (e) {
+      if (!mounted) return;
+
       setState(() {
         errorMessage = e.toString();
         isLoadingUrl = false;
@@ -221,18 +226,15 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
       setState(() {
         currentIndex++;
       });
-
-      _loadAudioPath();
-      _checkDownloadStatus();
     } else {
       //last track
       setState(() {
         currentIndex = 0;
       });
-
-      _loadAudioPath();
-      _checkDownloadStatus();
     }
+
+    _loadAudioPath();
+    _checkDownloadStatus();
   }
 
   void _playPrevious() {
@@ -240,17 +242,14 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
       setState(() {
         currentIndex--;
       });
-
-      _loadAudioPath();
-      _checkDownloadStatus();
     } else {
       setState(() {
         currentIndex = widget.audioData.length - 1;
       });
-
-      _loadAudioPath();
-      _checkDownloadStatus();
     }
+
+    _loadAudioPath();
+    _checkDownloadStatus();
   }
 
   @override

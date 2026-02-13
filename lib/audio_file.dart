@@ -35,11 +35,8 @@ class _AudioFileState extends State<AudioFile> {
   Duration _position = Duration.zero;
 
   bool isPlaying = false;
-  bool isPaused = false;
-  bool isRepeat = false;
   bool isLoading = true;
-
-  Color repeatColor = Colors.black26;
+  bool hasAutoPlayed = false;
 
   LoopMode loopMode = LoopMode.none;
 
@@ -58,13 +55,19 @@ class _AudioFileState extends State<AudioFile> {
     }
 
     widget.advancedPlayer.onDurationChanged.listen((d) {
+      if (!mounted) return;
+
       setState(() {
         _duration = d;
         isLoading = false;
       });
 
-      if (widget.autoPlay && !isPlaying) {
+      if (widget.autoPlay && !hasAutoPlayed && d.inMilliseconds > 0) {
+        hasAutoPlayed = true;
+
         _playAudio().then((_) {
+          if (!mounted) return;
+
           setState(() {
             isPlaying = true;
           });
@@ -73,42 +76,74 @@ class _AudioFileState extends State<AudioFile> {
     });
 
     widget.advancedPlayer.onPositionChanged.listen((p) {
+      if (!mounted) return;
+
       setState(() {
         _position = p;
       });
     });
 
-    //load s3 URL
-    _loadAudio();
+    widget.advancedPlayer.onPlayerStateChanged.listen((state) {
+      if (!mounted) return;
 
-    widget.advancedPlayer.onPlayerComplete.listen((e) {
       setState(() {
-        _position = Duration.zero;
-        isPlaying = true;
+        isPlaying = (state == PlayerState.playing);
       });
 
-      //notifying parent about track completion
-      widget.onTrackComplete?.call(loopMode);
+      //handling completion
+      if (state == PlayerState.completed) {
+        setState(() {
+          _position = Duration.zero;
+        });
+
+        //notify parent, loop one is handled by player
+        if (loopMode != LoopMode.one) {
+          widget.onTrackComplete?.call(loopMode);
+        }
+      }
     });
+
+    _loadAudio();
+  }
+
+  @override
+  void didUpdateWidget(AudioFile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    //if audio path changed then reload
+    if (oldWidget.audioPath != widget.audioPath) {
+      print("audio path changed so reloading");
+
+      hasAutoPlayed = false;
+
+      setState(() {
+        isLoading = true;
+
+        _position = Duration.zero;
+        _duration = Duration.zero;
+      });
+
+      _loadAudio();
+    }
   }
 
   Future<void> _loadAudio() async {
     try {
       if (widget.isLocal) {
-        print("loading local file: ${widget.audioPath}");
-
         await widget.advancedPlayer.setSourceDeviceFile(widget.audioPath);
       } else {
-        print("loading remote url: ${widget.audioPath}");
-
         await widget.advancedPlayer.setSourceUrl(widget.audioPath);
       }
+
+      if (!mounted) return;
 
       setState(() {
         isLoading = false;
       });
     } catch (e) {
       print("error loading audio: $e");
+
+      if (!mounted) return;
 
       setState(() {
         isLoading = false;
@@ -117,10 +152,14 @@ class _AudioFileState extends State<AudioFile> {
   }
 
   Future<void> _playAudio() async {
-    if (widget.isLocal) {
-      await widget.advancedPlayer.play(DeviceFileSource(widget.audioPath));
-    } else {
-      await widget.advancedPlayer.play(UrlSource(widget.audioPath));
+    try {
+      if (widget.isLocal) {
+        await widget.advancedPlayer.play(DeviceFileSource(widget.audioPath));
+      } else {
+        await widget.advancedPlayer.play(UrlSource(widget.audioPath));
+      }
+    } catch (e) {
+      print("error playing audio: $e");
     }
   }
 
@@ -247,10 +286,16 @@ class _AudioFileState extends State<AudioFile> {
   }
 
   Widget slider() {
+    //never exceed duration
+    final clampedPosition = _position.inSeconds.toDouble().clamp(
+      0.0,
+      _duration.inSeconds.toDouble() > 0 ? _duration.inSeconds.toDouble() : 1.0,
+    );
+
     return Slider(
       activeColor: Colors.black,
       inactiveColor: Colors.black12,
-      value: _position.inSeconds.toDouble(),
+      value: clampedPosition,
       min: 0.0,
       max: _duration.inSeconds.toDouble() > 0
           ? _duration.inSeconds.toDouble()

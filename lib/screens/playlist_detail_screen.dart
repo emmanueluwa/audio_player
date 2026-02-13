@@ -197,7 +197,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       List<Map<String, dynamic>> audioQueue = [];
 
       for (var audioItem in playlistDetail!.audioItems) {
-        final playbackInfo = await _audioService.getPlaybackPath(audio.id);
+        final playbackInfo = await _audioService.getPlaybackPath(audioItem.id);
 
         audioQueue.add({
           "id": audioItem.id,
