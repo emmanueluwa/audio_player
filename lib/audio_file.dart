@@ -11,6 +11,8 @@ class AudioFile extends StatefulWidget {
   final VoidCallback? onNext;
   final VoidCallback? onPrevious;
   final Function(LoopMode)? onTrackComplete;
+  final LoopMode initialLoopMode;
+  final bool autoPlay;
 
   const AudioFile({
     super.key,
@@ -20,6 +22,8 @@ class AudioFile extends StatefulWidget {
     this.onNext,
     this.onPrevious,
     this.onTrackComplete,
+    this.initialLoopMode = LoopMode.none,
+    this.autoPlay = false,
   });
 
   @override
@@ -45,11 +49,27 @@ class _AudioFileState extends State<AudioFile> {
   void initState() {
     super.initState();
 
+    loopMode = widget.initialLoopMode;
+
+    if (loopMode == LoopMode.one) {
+      widget.advancedPlayer.setReleaseMode(ReleaseMode.loop);
+    } else {
+      widget.advancedPlayer.setReleaseMode(ReleaseMode.release);
+    }
+
     widget.advancedPlayer.onDurationChanged.listen((d) {
       setState(() {
         _duration = d;
         isLoading = false;
       });
+
+      if (widget.autoPlay && !isPlaying) {
+        _playAudio().then((_) {
+          setState(() {
+            isPlaying = true;
+          });
+        });
+      }
     });
 
     widget.advancedPlayer.onPositionChanged.listen((p) {

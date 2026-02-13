@@ -186,22 +186,37 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
   Future<void> _playAudio(AudioInPlaylist audio) async {
     try {
-      final playbackInfo = await _audioService.getPlaybackPath(audio.id);
+      final tappedIndex = playlistDetail!.audioItems.indexWhere(
+        (a) => a.id == audio.id,
+      );
+      if (tappedIndex == -1) {
+        throw Exception("Audio not found in playlist");
+      }
+
+      // queue with playback info
+      List<Map<String, dynamic>> audioQueue = [];
+
+      for (var audioItem in playlistDetail!.audioItems) {
+        final playbackInfo = await _audioService.getPlaybackPath(audio.id);
+
+        audioQueue.add({
+          "id": audioItem.id,
+          "title": audioItem.title,
+          "text": audioItem.author,
+          "audio": playbackInfo["path"],
+          "isLocal": playbackInfo["isLocal"],
+        });
+      }
+
+      if (!mounted) return;
 
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => DetailAudioPage(
-            audioData: [
-              {
-                "id": audio.id,
-                "title": audio.title,
-                "text": audio.author,
-                "audio": playbackInfo["path"],
-              },
-            ],
-            index: 0,
-            isLocal: playbackInfo["isLocal"],
+            audioData: audioQueue,
+            index: tappedIndex,
+            isLocal: audioQueue[tappedIndex]["isLocal"],
           ),
         ),
       );

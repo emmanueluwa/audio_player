@@ -789,23 +789,37 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _playAudio(Audio audio) async {
     try {
-      String audioPath;
-      bool isLocal;
+      final tappedIndex = audios.indexWhere((a) => a.id == audio.id);
+      if (tappedIndex == -1) {
+        throw Exception("Audio not found in library");
+      }
 
-      if (audio.id < 0) {
-        audioPath = audio.fileUrl;
-        isLocal = true;
+      // queue with playback info
+      List<Map<String, dynamic>> audioQueue = [];
 
-        print("playing local file: $audioPath");
-      } else {
-        final playbackInfo = await _audioService.getPlaybackPath(audio.id);
+      for (var audioItem in audios) {
+        String audioPath;
+        bool isLocal;
 
-        if (playbackInfo["path"] == null) {
-          throw Exception("could not get audio path");
+        if (audio.id < 0) {
+          audioPath = audio.fileUrl;
+          isLocal = true;
+
+          print("playing local file: $audioPath");
+        } else {
+          final playbackInfo = await _audioService.getPlaybackPath(audio.id);
+
+          audioPath = playbackInfo["path"] as String;
+          isLocal = playbackInfo["isLocal"];
         }
 
-        audioPath = playbackInfo["path"] as String;
-        isLocal = playbackInfo["isLocal"];
+        audioQueue.add({
+          "id": audioItem.id,
+          "title": audioItem.title,
+          "text": audioItem.author,
+          "audio": audioPath,
+          "isLocal": isLocal,
+        });
       }
 
       if (!mounted) return;
@@ -814,16 +828,9 @@ class _HomePageState extends State<HomePage> {
         context,
         MaterialPageRoute(
           builder: (context) => DetailAudioPage(
-            audioData: [
-              {
-                "id": audio.id,
-                "title": audio.title,
-                "text": audio.author,
-                "audio": audioPath,
-              },
-            ],
-            index: 0,
-            isLocal: isLocal,
+            audioData: audioQueue,
+            index: tappedIndex,
+            isLocal: audioQueue[tappedIndex]["isLocal"],
           ),
         ),
       );

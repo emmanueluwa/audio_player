@@ -32,6 +32,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
   final LocalDatabase _localDb = LocalDatabase.instance;
 
   late int currentIndex;
+  LoopMode currentLoopMode = LoopMode.none;
 
   bool isDownloaded = false;
   bool isDownloading = false;
@@ -188,12 +189,6 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
       setState(() {
         isLoadingUrl = false;
       });
-
-      await advancedPlayer.play(
-        currentTrackIsLocal
-            ? DeviceFileSource(audioPath!)
-            : UrlSource(audioPath!),
-      );
     } catch (e) {
       setState(() {
         errorMessage = e.toString();
@@ -204,6 +199,8 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
 
   void _handleTrackComplete(LoopMode loopMode) {
     print("Track completed. Loop mode: $loopMode");
+
+    currentLoopMode = loopMode;
 
     switch (loopMode) {
       case LoopMode.none:
@@ -380,6 +377,8 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                       onNext: _playNext,
                       onPrevious: _playPrevious,
                       onTrackComplete: _handleTrackComplete,
+                      initialLoopMode: currentLoopMode,
+                      autoPlay: true,
                     ),
 
                     SizedBox(height: 24),
