@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:audio_player/audio_file.dart';
 import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/models/audio.dart';
+import 'package:audio_player/models/loop_mode.dart';
 import 'package:audio_player/services/audio_service.dart';
 import 'package:audio_player/services/download_service.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -30,6 +31,8 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
   final DownloadService _downloadService = DownloadService();
   final LocalDatabase _localDb = LocalDatabase.instance;
 
+  late int currentIndex;
+
   bool isDownloaded = false;
   bool isDownloading = false;
   double downloadedProgress = 0.0;
@@ -37,11 +40,13 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
   String? audioPath;
   bool isLoadingUrl = true;
   String? errorMessage;
+  bool currentTrackIsLocal = false;
 
   @override
   void initState() {
     super.initState();
 
+    currentIndex = widget.index;
     advancedPlayer = AudioPlayer();
 
     _loadAudioPath();
@@ -50,7 +55,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
   }
 
   Future<void> _checkDownloadStatus() async {
-    final audioId = widget.audioData[widget.index]["id"];
+    final audioId = widget.audioData[currentIndex]["id"];
 
     //skip local files
     if (audioId < 0) return;
@@ -64,7 +69,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
   }
 
   Future<void> _downloadAudio() async {
-    final audioData = widget.audioData[widget.index];
+    final audioData = widget.audioData[currentIndex];
     final audioId = audioData["id"];
 
     //do not download local files
@@ -109,7 +114,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Download: ${audioData["title"]}")),
+        SnackBar(content: Text("Downloaded: ${audioData["title"]}")),
       );
     } catch (e) {
       setState(() {
@@ -126,7 +131,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
   }
 
   Future<void> _deleteDownload() async {
-    final audioId = widget.audioData[widget.index]["id"];
+    final audioId = widget.audioData[currentIndex]["id"];
 
     try {
       await _downloadService.deleteDownload(audioId);
@@ -155,10 +160,12 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
     });
 
     try {
-      final audio = widget.audioData[widget.index];
+      final audio = widget.audioData[currentIndex];
+      final audioId = audio["id"];
 
-      if (widget.isLocal) {
+      if (audioId < 0) {
         audioPath = audio["audio"];
+        currentTrackIsLocal = true;
 
         print("local playback: $audioPath");
 
@@ -170,31 +177,82 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
           if (!exists) {
             throw Exception("file not found at: $audioPath");
           }
-
-          final fileSize = await file.length;
         }
       } else {
-        final audioData = audio["audio"];
-
-        if (audioData is String && audioData.startsWith("http")) {
-          audioPath = audioData;
-        } else {
-          final audioId = audio["id"];
-
-          audioPath = await _audioService.getStreamUrl(audioId);
-        }
-
-        print("streaming: $audioPath");
+        // get playback path for cloud file
+        final playbackInfo = await _audioService.getPlaybackPath(audioId);
+        audioPath = playbackInfo["path"];
+        currentTrackIsLocal = playbackInfo["isLocal"];
       }
 
       setState(() {
         isLoadingUrl = false;
       });
+
+      await advancedPlayer.play(
+        currentTrackIsLocal
+            ? DeviceFileSource(audioPath!)
+            : UrlSource(audioPath!),
+      );
     } catch (e) {
       setState(() {
         errorMessage = e.toString();
         isLoadingUrl = false;
       });
+    }
+  }
+
+  void _handleTrackComplete(LoopMode loopMode) {
+    print("Track completed. Loop mode: $loopMode");
+
+    switch (loopMode) {
+      case LoopMode.none:
+        break;
+
+      case LoopMode.one:
+        //loop handled by AudioPlayer
+        break;
+
+      case LoopMode.all:
+        _playNext();
+        break;
+    }
+  }
+
+  void _playNext() {
+    if (currentIndex < widget.audioData.length - 1) {
+      setState(() {
+        currentIndex++;
+      });
+
+      _loadAudioPath();
+      _checkDownloadStatus();
+    } else {
+      //last track
+      setState(() {
+        currentIndex = 0;
+      });
+
+      _loadAudioPath();
+      _checkDownloadStatus();
+    }
+  }
+
+  void _playPrevious() {
+    if (currentIndex > 0) {
+      setState(() {
+        currentIndex--;
+      });
+
+      _loadAudioPath();
+      _checkDownloadStatus();
+    } else {
+      setState(() {
+        currentIndex = widget.audioData.length - 1;
+      });
+
+      _loadAudioPath();
+      _checkDownloadStatus();
     }
   }
 
@@ -206,7 +264,7 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
 
   @override
   Widget build(BuildContext context) {
-    final audio = widget.audioData[widget.index];
+    final audio = widget.audioData[currentIndex];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -217,8 +275,12 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
           onPressed: () => Navigator.of(context).pop(),
           icon: Icon(Icons.arrow_back_ios, color: Colors.black87),
         ),
+        title: Text(
+          "Track ${currentIndex + 1} of ${widget.audioData.length}",
+          style: TextStyle(color: Colors.grey[600], fontSize: 14),
+        ),
         actions: [
-          if (widget.isLocal)
+          if (currentTrackIsLocal)
             Padding(
               padding: const EdgeInsets.only(right: 8.0),
               child: Chip(
@@ -250,7 +312,11 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                     SizedBox(height: 16),
                     Text("Failed to load audio"),
                     SizedBox(height: 8),
-                    Text(errorMessage!),
+                    Text(
+                      errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
                     SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: _loadAudioPath,
@@ -269,11 +335,15 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                       width: 200,
                       height: 200,
                       decoration: BoxDecoration(
-                        color: widget.isLocal ? Colors.green : Colors.black87,
+                        color: currentTrackIsLocal
+                            ? Colors.green
+                            : Colors.black87,
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        widget.isLocal ? Icons.offline_pin : Icons.music_note,
+                        currentTrackIsLocal
+                            ? Icons.offline_pin
+                            : Icons.music_note,
                         size: 100,
                         color: Colors.white,
                       ),
@@ -306,7 +376,10 @@ class _DetailAudioPageState extends State<DetailAudioPage> {
                     AudioFile(
                       advancedPlayer: advancedPlayer,
                       audioPath: audioPath!,
-                      isLocal: widget.isLocal,
+                      isLocal: currentTrackIsLocal,
+                      onNext: _playNext,
+                      onPrevious: _playPrevious,
+                      onTrackComplete: _handleTrackComplete,
                     ),
 
                     SizedBox(height: 24),

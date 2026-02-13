@@ -1,3 +1,6 @@
+import 'dart:ffi';
+
+import 'package:audio_player/models/loop_mode.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
@@ -5,12 +8,18 @@ class AudioFile extends StatefulWidget {
   final AudioPlayer advancedPlayer;
   final String audioPath;
   final bool isLocal;
+  final VoidCallback? onNext;
+  final VoidCallback? onPrevious;
+  final Function(LoopMode)? onTrackComplete;
 
   const AudioFile({
     super.key,
     required this.advancedPlayer,
     required this.audioPath,
     this.isLocal = false,
+    this.onNext,
+    this.onPrevious,
+    this.onTrackComplete,
   });
 
   @override
@@ -27,6 +36,8 @@ class _AudioFileState extends State<AudioFile> {
   bool isLoading = true;
 
   Color repeatColor = Colors.black26;
+
+  LoopMode loopMode = LoopMode.none;
 
   List<IconData> _icons = [Icons.play_circle_fill, Icons.pause_circle_filled];
 
@@ -53,16 +64,11 @@ class _AudioFileState extends State<AudioFile> {
     widget.advancedPlayer.onPlayerComplete.listen((e) {
       setState(() {
         _position = Duration.zero;
-
-        if (isRepeat) {
-          isPlaying = true;
-
-          _playAudio();
-        } else {
-          isPlaying = false;
-          // isRepeat = false;
-        }
+        isPlaying = true;
       });
+
+      //notifying parent about track completion
+      widget.onTrackComplete?.call(loopMode);
     });
   }
 
@@ -98,6 +104,68 @@ class _AudioFileState extends State<AudioFile> {
     }
   }
 
+  void _cycleLoopMode() {
+    setState(() {
+      switch (loopMode) {
+        case LoopMode.none:
+          loopMode = LoopMode.one;
+          widget.advancedPlayer.setReleaseMode(ReleaseMode.loop);
+          break;
+
+        case LoopMode.one:
+          loopMode = LoopMode.all;
+          widget.advancedPlayer.setReleaseMode(ReleaseMode.release);
+          break;
+
+        case LoopMode.all:
+          loopMode = LoopMode.none;
+          widget.advancedPlayer.setReleaseMode(ReleaseMode.release);
+          break;
+      }
+    });
+  }
+
+  Color _getLoopColor() {
+    return loopMode == LoopMode.none ? Colors.black26 : Colors.blue;
+  }
+
+  Widget _getLoopIcon() {
+    switch (loopMode) {
+      case LoopMode.none:
+        return Icon(Icons.repeat, color: _getLoopColor(), size: 28);
+
+      case LoopMode.one:
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(Icons.repeat, color: _getLoopColor(), size: 28),
+            Positioned(
+              bottom: 0,
+              child: Container(
+                padding: EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  shape: BoxShape.circle,
+                ),
+
+                child: Text(
+                  "1",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case LoopMode.all:
+        return Icon(Icons.repeat, color: _getLoopColor(), size: 28);
+    }
+  }
+
   Widget btnStart() {
     if (isLoading) {
       return SizedBox(
@@ -130,32 +198,31 @@ class _AudioFileState extends State<AudioFile> {
     );
   }
 
+  Widget btnRepeat() {
+    return IconButton(onPressed: _cycleLoopMode, icon: _getLoopIcon());
+  }
+
+  Widget btnPrevious() {
+    return IconButton(
+      onPressed: widget.onPrevious,
+      icon: Icon(Icons.skip_previous, color: Colors.black87, size: 32),
+    );
+  }
+
+  Widget btnNext() {
+    return IconButton(
+      onPressed: widget.onNext,
+      icon: Icon(Icons.skip_next, color: Colors.black87, size: 32),
+    );
+  }
+
   Widget loadAsset() {
     return Container(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [btnRepeat(), btnStart()],
+        children: [btnRepeat(), btnPrevious(), btnStart(), btnNext()],
       ),
-    );
-  }
-
-  Widget btnRepeat() {
-    return IconButton(
-      onPressed: () {
-        setState(() {
-          isRepeat = !isRepeat;
-
-          if (isRepeat) {
-            widget.advancedPlayer.setReleaseMode(ReleaseMode.loop);
-            repeatColor = Colors.black87;
-          } else {
-            widget.advancedPlayer.setReleaseMode(ReleaseMode.release);
-            repeatColor = Colors.black26;
-          }
-        });
-      },
-      icon: Icon(Icons.repeat, color: repeatColor, size: 28),
     );
   }
 
