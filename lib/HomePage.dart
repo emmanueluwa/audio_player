@@ -3,22 +3,25 @@ import 'dart:io';
 import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/detail_audio_page.dart';
 import 'package:audio_player/models/audio.dart';
+import 'package:audio_player/providers/audio_player_provider.dart';
 import 'package:audio_player/screens/playlists_screen.dart';
 import 'package:audio_player/screens/upload_audio_screen.dart';
 import 'package:audio_player/services/audio_service.dart';
 import 'package:audio_player/services/auth_service.dart';
 import 'package:audio_player/services/download_service.dart';
 import 'package:audio_player/services/local_file_scanner.dart';
+import 'package:audio_player/widgets/player_wrapper.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  ConsumerState<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends ConsumerState<HomePage> {
   List<Audio> audios = [];
 
   bool isLoading = true;
@@ -445,344 +448,354 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
+    return PlayerWrapper(
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Library",
-              style: TextStyle(
-                color: Colors.black87,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            if (cloudFileCount > 0 || localFileCount > 0)
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                "${cloudFileCount} cloud * ${localFileCount} local",
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                "Library",
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              if (cloudFileCount > 0 || localFileCount > 0)
+                Text(
+                  "${cloudFileCount} cloud * ${localFileCount} local",
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.playlist_play, color: Colors.black87),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => PlaylistsScreen()),
+                );
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.logout, color: Colors.black87),
+              onPressed: () async {
+                await _authService.logout();
+                Navigator.pushReplacementNamed(context, "/login");
+              },
+            ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.playlist_play, color: Colors.black87),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => PlaylistsScreen()),
-              );
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.logout, color: Colors.black87),
-            onPressed: () async {
-              await _authService.logout();
-              Navigator.pushReplacementNamed(context, "/login");
-            },
-          ),
-        ],
-      ),
 
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => UploadAudioScreen()),
-          );
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => UploadAudioScreen()),
+            );
 
-          if (result == true) {
-            loadData();
-          }
-        },
-        backgroundColor: Colors.black87,
-        child: Icon(Icons.add, color: Colors.white),
-      ),
+            if (result == true) {
+              loadData();
+            }
+          },
+          backgroundColor: Colors.black87,
+          child: Icon(Icons.add, color: Colors.white),
+        ),
 
-      body: RefreshIndicator(
-        onRefresh: loadData,
-        child: audios.isEmpty
-            ? ListView(
-                physics: AlwaysScrollableScrollPhysics(),
-                children: [
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+        body: RefreshIndicator(
+          onRefresh: loadData,
+          child: audios.isEmpty
+              ? ListView(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.3),
 
-                  Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.music_note_outlined,
-                          size: 64,
-                          color: Colors.grey[360],
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          "No audio files",
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.grey[600],
+                    Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.music_note_outlined,
+                            size: 64,
+                            color: Colors.grey[360],
                           ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          "Upload files",
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[400],
+                          SizedBox(height: 16),
+                          Text(
+                            "No audio files",
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              )
-            : ListView.separated(
-                physics: AlwaysScrollableScrollPhysics(),
-                itemBuilder: (context, index) {
-                  final audio = audios[index];
-
-                  final isCloudFile = audio.id > 0;
-                  final isLocalFile = audio.id < 0;
-
-                  final isDownloaded = downloadStatus[audio.id] ?? false;
-                  final isDownloading = currentlyDownloading.contains(audio.id);
-                  final progress = downloadProgress[audio.id] ?? 0.0;
-
-                  return ListTile(
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    leading: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: isLocalFile || downloadStatus[audio.id] == true
-                            ? Colors.green
-                            : Colors.blue,
-                        borderRadius: BorderRadius.circular(8),
+                          SizedBox(height: 8),
+                          Text(
+                            "Upload files",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[400],
+                            ),
+                          ),
+                        ],
                       ),
-                      child: isDownloaded || isLocalFile
-                          ? Stack(
-                              children: [
-                                Center(
-                                  child: Icon(
-                                    Icons.music_note,
-                                    color: Colors.white,
-                                    size: 28,
+                    ),
+                  ],
+                )
+              : ListView.separated(
+                  physics: AlwaysScrollableScrollPhysics(),
+                  itemBuilder: (context, index) {
+                    final audio = audios[index];
+
+                    final isCloudFile = audio.id > 0;
+                    final isLocalFile = audio.id < 0;
+
+                    final isDownloaded = downloadStatus[audio.id] ?? false;
+                    final isDownloading = currentlyDownloading.contains(
+                      audio.id,
+                    );
+                    final progress = downloadProgress[audio.id] ?? 0.0;
+
+                    return ListTile(
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      leading: Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: isLocalFile || downloadStatus[audio.id] == true
+                              ? Colors.green
+                              : Colors.blue,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: isDownloaded || isLocalFile
+                            ? Stack(
+                                children: [
+                                  Center(
+                                    child: Icon(
+                                      Icons.music_note,
+                                      color: Colors.white,
+                                      size: 28,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    right: 4,
+                                    bottom: 4,
+                                    child: Container(
+                                      padding: EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.check,
+                                        color: Colors.green,
+                                        size: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Icon(
+                                Icons.music_note,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                      ),
+                      title: Text(
+                        audio.title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 4),
+                          Text(
+                            audio.author,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 4),
+                          Row(
+                            children: [
+                              //source indicator
+                              if (isLocalFile) ...[
+                                Icon(
+                                  Icons.desktop_windows,
+                                  size: 14,
+                                  color: Colors.green,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  "Desktop",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green,
                                   ),
                                 ),
-                                Positioned(
-                                  right: 4,
-                                  bottom: 4,
-                                  child: Container(
-                                    padding: EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      Icons.check,
-                                      color: Colors.green,
-                                      size: 12,
-                                    ),
+                              ] else if (isDownloaded) ...[
+                                Icon(
+                                  Icons.offline_pin,
+                                  size: 14,
+                                  color: Colors.green,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  "Offline",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.green,
+                                  ),
+                                ),
+                              ] else ...[
+                                Icon(Icons.cloud, size: 14, color: Colors.blue),
+                                SizedBox(width: 4),
+                                Text(
+                                  "Cloud",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.blue,
                                   ),
                                 ),
                               ],
-                            )
-                          : Icon(
-                              Icons.music_note,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                    ),
-                    title: Text(
-                      audio.title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(height: 4),
-                        Text(
-                          audio.author,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 4),
-                        Row(
-                          children: [
-                            //source indicator
-                            if (isLocalFile) ...[
-                              Icon(
-                                Icons.desktop_windows,
-                                size: 14,
-                                color: Colors.green,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                "Desktop",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.green,
-                                ),
-                              ),
-                            ] else if (isDownloaded) ...[
-                              Icon(
-                                Icons.offline_pin,
-                                size: 14,
-                                color: Colors.green,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                "Offline",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.green,
-                                ),
-                              ),
-                            ] else ...[
-                              Icon(Icons.cloud, size: 14, color: Colors.blue),
-                              SizedBox(width: 4),
-                              Text(
-                                "Cloud",
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.blue,
-                                ),
-                              ),
                             ],
-                          ],
-                        ),
-                        if (isDownloading) ...[
-                          SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.grey[200],
-                            color: Colors.blue,
                           ),
-                          SizedBox(height: 4),
-                          Text(
-                            "Downloading ${(progress * 100).toStringAsFixed(0)}%",
-                            style: TextStyle(fontSize: 12, color: Colors.blue),
-                          ),
-                        ],
-                      ],
-                    ),
-                    trailing: isDownloading
-                        ? SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
+                          if (isDownloading) ...[
+                            SizedBox(height: 8),
+                            LinearProgressIndicator(
+                              value: progress,
+                              backgroundColor: Colors.grey[200],
                               color: Colors.blue,
                             ),
-                          )
-                        : PopupMenuButton(
-                            icon: Icon(Icons.more_vert, color: Colors.black87),
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.play_arrow,
-                                      color: Colors.black87,
-                                      size: 20,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text("Play"),
-                                  ],
-                                ),
-                                onTap: () {
-                                  Future.delayed(
-                                    Duration.zero,
-                                    () => _playAudio(audio),
-                                  );
-                                },
+                            SizedBox(height: 4),
+                            Text(
+                              "Downloading ${(progress * 100).toStringAsFixed(0)}%",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue,
                               ),
-                              if (isCloudFile && !isDownloaded)
+                            ),
+                          ],
+                        ],
+                      ),
+                      trailing: isDownloading
+                          ? SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.blue,
+                              ),
+                            )
+                          : PopupMenuButton(
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: Colors.black87,
+                              ),
+                              itemBuilder: (context) => [
                                 PopupMenuItem(
                                   child: Row(
                                     children: [
                                       Icon(
-                                        Icons.download,
-                                        color: Colors.blue,
+                                        Icons.play_arrow,
+                                        color: Colors.black87,
                                         size: 20,
                                       ),
                                       SizedBox(width: 8),
-                                      Text("Download"),
+                                      Text("Play"),
                                     ],
                                   ),
                                   onTap: () {
                                     Future.delayed(
                                       Duration.zero,
-                                      () => _downloadAudio(audio),
+                                      () => _playAudio(audio),
                                     );
                                   },
                                 ),
-                              if (isCloudFile && isDownloaded)
+                                if (isCloudFile && !isDownloaded)
+                                  PopupMenuItem(
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.download,
+                                          color: Colors.blue,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text("Download"),
+                                      ],
+                                    ),
+                                    onTap: () {
+                                      Future.delayed(
+                                        Duration.zero,
+                                        () => _downloadAudio(audio),
+                                      );
+                                    },
+                                  ),
+                                if (isCloudFile && isDownloaded)
+                                  PopupMenuItem(
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.orange,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text("Delete Download"),
+                                      ],
+                                    ),
+                                    onTap: () {
+                                      Future.delayed(
+                                        Duration.zero,
+                                        () => _deleteDownload(audio),
+                                      );
+                                    },
+                                  ),
                                 PopupMenuItem(
                                   child: Row(
                                     children: [
                                       Icon(
-                                        Icons.delete_outline,
-                                        color: Colors.orange,
+                                        Icons.delete_forever,
+                                        color: Colors.red,
                                         size: 20,
                                       ),
                                       SizedBox(width: 8),
-                                      Text("Delete Download"),
+                                      Text("Delete Audio"),
                                     ],
                                   ),
                                   onTap: () {
                                     Future.delayed(
                                       Duration.zero,
-                                      () => _deleteDownload(audio),
+                                      () => _deleteAudio(audio),
                                     );
                                   },
                                 ),
-                              PopupMenuItem(
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.delete_forever,
-                                      color: Colors.red,
-                                      size: 20,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Text("Delete Audio"),
-                                  ],
-                                ),
-                                onTap: () {
-                                  Future.delayed(
-                                    Duration.zero,
-                                    () => _deleteAudio(audio),
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                    onTap: () => _playAudio(audio),
-                  );
-                },
-                separatorBuilder: (context, index) =>
-                    Divider(height: 1, indent: 72),
-                itemCount: audios.length,
-              ),
+                              ],
+                            ),
+                      onTap: () => _playAudio(audio),
+                    );
+                  },
+                  separatorBuilder: (context, index) =>
+                      Divider(height: 1, indent: 72),
+                  itemCount: audios.length,
+                ),
+        ),
       ),
     );
   }
@@ -826,16 +839,10 @@ class _HomePageState extends State<HomePage> {
 
       if (!mounted) return;
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DetailAudioPage(
-            audioData: audioQueue,
-            index: tappedIndex,
-            isLocal: audioQueue[tappedIndex]["isLocal"],
-          ),
-        ),
-      );
+      // load queue into global player
+      await ref
+          .read(audioPlayerProvider.notifier)
+          .loadQueue(queue: audioQueue, startIndex: tappedIndex);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

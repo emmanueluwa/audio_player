@@ -1,7 +1,6 @@
 import 'package:audio_player/providers/audio_player_provider.dart';
 import 'package:audio_player/widgets/full_player_sheet.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class MiniPlayer extends ConsumerWidget {
@@ -18,6 +17,9 @@ class MiniPlayer extends ConsumerWidget {
 
     final track = playerState.currentTrack!;
 
+    //bottom padding for system nav
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
     return GestureDetector(
       onTap: () {
         //expand to full player modal
@@ -29,7 +31,7 @@ class MiniPlayer extends ConsumerWidget {
         );
       },
       child: Container(
-        height: 80,
+        height: 80 + bottomPadding,
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1)),
@@ -43,7 +45,12 @@ class MiniPlayer extends ConsumerWidget {
         ),
 
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 8,
+            bottom: 8 + bottomPadding,
+          ),
           child: Row(
             children: [
               Container(

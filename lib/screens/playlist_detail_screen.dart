@@ -2,13 +2,15 @@ import 'package:audio_player/database/local_db.dart';
 import 'package:audio_player/detail_audio_page.dart';
 import 'package:audio_player/models/audio.dart';
 import 'package:audio_player/models/playlist.dart';
+import 'package:audio_player/providers/audio_player_provider.dart';
 import 'package:audio_player/screens/add_to_playlist_screen.dart';
 import 'package:audio_player/services/audio_service.dart';
 import 'package:audio_player/services/download_service.dart';
 import 'package:audio_player/services/playlist_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PlaylistDetailScreen extends StatefulWidget {
+class PlaylistDetailScreen extends ConsumerStatefulWidget {
   final int playlistId;
   final String playlistName;
 
@@ -19,10 +21,11 @@ class PlaylistDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<PlaylistDetailScreen> createState() => _PlaylistDetailScreenState();
+  ConsumerState<PlaylistDetailScreen> createState() =>
+      _PlaylistDetailScreenState();
 }
 
-class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
+class _PlaylistDetailScreenState extends ConsumerState<PlaylistDetailScreen> {
   final PlaylistService _playlistService = PlaylistService();
   final AudioService _audioService = AudioService();
   final DownloadService _downloadService = DownloadService();
@@ -210,16 +213,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
       if (!mounted) return;
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DetailAudioPage(
-            audioData: audioQueue,
-            index: tappedIndex,
-            isLocal: audioQueue[tappedIndex]["isLocal"],
-          ),
-        ),
-      );
+      //load into global player
+      await ref
+          .read(audioPlayerProvider.notifier)
+          .loadQueue(queue: audioQueue, startIndex: tappedIndex);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
